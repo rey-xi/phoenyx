@@ -7,7 +7,7 @@
     "dev": "concurrently \"tsx watch server/dev.ts\" \"vite\"",
     "dev:server": "tsx watch server/dev.ts",
     "dev:client": "vite --host 0.0.0.0",
-    "build": "tsx server/scripts/set-webhook.ts && tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build",
     "start": "tsx server/dev.ts",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview --host 0.0.0.0"

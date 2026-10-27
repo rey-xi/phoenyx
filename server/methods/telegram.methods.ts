@@ -146,6 +146,15 @@ export async function requestTelegramCodeLeadReview(
   });
 }
 
+export function getTelegramMode(): "webhook" | "polling" | "disabled" {
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+    return "webhook";
+  }
+  if (process.env.TELEGRAM_MODE === "polling") return "polling";
+  if (process.env.TELEGRAM_MODE === "webhook") return "webhook";
+  return "disabled";
+}
+
 export async function startTelegramPolling(): Promise<void> {
   if (process.env.TELEGRAM_MODE !== "polling") return;
   if (process.env.VERCEL || process.env.NODE_ENV === "production") {
@@ -164,13 +173,4 @@ export async function startTelegramPolling(): Promise<void> {
   await bot.start({
     onStart: () => console.log("Telegram bot started in local polling mode."),
   });
-}
-
-export function getTelegramMode(): "webhook" | "polling" | "disabled" {
-  if (process.env.VERCEL || process.env.NODE_ENV === "production") {
-    return "webhook";
-  }
-  if (process.env.TELEGRAM_MODE === "polling") return "polling";
-  if (process.env.TELEGRAM_MODE === "webhook") return "webhook";
-  return "disabled";
 }

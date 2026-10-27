@@ -435,6 +435,7 @@
   justify-content: center;
   gap: 16px;
   margin-top: 32px;
+  margin-inline: 16px;
   padding: 0 22px;
   border: 1px solid #753e43;
   color: #fffaf0;
