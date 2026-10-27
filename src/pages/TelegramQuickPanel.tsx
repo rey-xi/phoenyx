@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import "../styles/invitation.css";
 
 async function call(action: "register" | "delete" | "info") {

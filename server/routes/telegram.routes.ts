@@ -1,7 +1,7 @@
 import { Bot } from "grammy";
 import { Router } from "express";
 import { telegramHandler } from "../handlers/telegram.handlers.js";
-import { activateTelegramBot } from "../clients/grammy.client";
+import { activateTelegramBot } from "../clients/grammy.client.js";
 
 const router = Router();
 
