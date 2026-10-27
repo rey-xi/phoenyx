@@ -3,8 +3,8 @@ import type { RequestHandler } from "express";
 import {
   getTelegramMode,
   testTelegramUpdate,
-} from "../methods/telegram.methods";
-import { bot } from "../clients/grammy.client";
+} from "../methods/telegram.methods.js";
+import { bot } from "../clients/grammy.client.js";
 
 export const telegramHandler: RequestHandler = async (request, response) => {
   if (getTelegramMode() !== "webhook") {

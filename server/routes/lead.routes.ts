@@ -4,7 +4,7 @@ import {
   leadGetHandler,
   codeLeadPostHandler,
   leadPostHandler,
-} from "../handlers/lead.handlers";
+} from "../handlers/lead.handlers.js";
 
 const router = Router();
 

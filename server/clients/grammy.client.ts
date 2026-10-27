@@ -1,5 +1,8 @@
 import { Bot } from "grammy";
-import { selectLeadChannel, updateLeadChannel } from "../methods/lead.methods";
+import {
+  selectLeadChannel,
+  updateLeadChannel,
+} from "../methods/lead.methods.js";
 import { InlineKeyboard } from "grammy";
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;

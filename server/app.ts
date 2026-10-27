@@ -1,9 +1,9 @@
 import "dotenv/config";
 
 import express from "express";
-import leadsRoutes from "./routes/lead.routes";
-import telegramRoutes from "./routes/telegram.routes";
-import { errorHandler, notFoundHandler } from "./middleware/errors";
+import leadsRoutes from "./routes/lead.routes.js";
+import telegramRoutes from "./routes/telegram.routes.js";
+import { errorHandler, notFoundHandler } from "./middleware/errors.js";
 
 const app = express();
 

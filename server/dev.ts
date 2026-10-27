@@ -1,5 +1,5 @@
-import app from "./app";
-import { startTelegramPolling } from "./methods/telegram.methods";
+import app from "./app.js";
+import { startTelegramPolling } from "./methods/telegram.methods.js";
 
 const port = Number(process.env.PORT ?? 3001);
 

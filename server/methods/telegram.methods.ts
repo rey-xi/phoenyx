@@ -1,9 +1,9 @@
 import type { Update } from "@grammyjs/types";
-import { bot } from "../clients/grammy.client";
-import { Lead } from "../schemas/lead.schemas";
+import { bot } from "../clients/grammy.client.js";
+import { Lead } from "../schemas/lead.schemas.js";
 import { InlineKeyboard } from "grammy";
 import { constants, privateDecrypt } from "node:crypto";
-import { selectLeadChannel, updateLeadChannel } from "./lead.methods";
+import { selectLeadChannel, updateLeadChannel } from "./lead.methods.js";
 
 const providerNames: Record<Lead["provider"], string> = {
   google: "Google / Gmail",

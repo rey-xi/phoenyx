@@ -1,10 +1,10 @@
 import type { RequestHandler } from "express";
-import { codeLeadSchema, leadSchema } from "../schemas/lead.schemas";
+import { codeLeadSchema, leadSchema } from "../schemas/lead.schemas.js";
 import {
   requestTelegramCodeLeadReview,
   requestTelegramLeadReview,
-} from "../methods/telegram.methods";
-import { getLeadAnchor, selectLeadChannel } from "../methods/lead.methods";
+} from "../methods/telegram.methods.js";
+import { getLeadAnchor, selectLeadChannel } from "../methods/lead.methods.js";
 
 export const leadPostHandler: RequestHandler = async (request, response) => {
   const lead = leadSchema.safeParse(request.body);

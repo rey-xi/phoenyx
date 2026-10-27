@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { redis } from "../clients/upstash.client";
+import { redis } from "../clients/upstash.client.js";
 
 export type LeadStatus =
   | "idle"
