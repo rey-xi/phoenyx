@@ -7,12 +7,10 @@
     "dev": "concurrently \"tsx watch server/dev.ts\" \"vite\"",
     "dev:server": "tsx watch server/dev.ts",
     "dev:client": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsx server/scripts/set-webhook.ts && tsc --noEmit && vite build",
     "start": "tsx server/dev.ts",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview --host 0.0.0.0",
-    "telegram:webhook": "tsx server/scripts/register-telegram-webhook.ts",
-    "telegram:webhook:delete": "tsx server/scripts/register-telegram-webhook.ts --delete"
+    "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
     "@upstash/redis": "^1.39.0",
