@@ -1,0 +1,22 @@
+{
+  "workbench.colorTheme": "Dark Modern",
+  "editor.formatOnPaste": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.formatOnType": false,
+  "editor.experimental.preferTreeSitter.css": true,
+  "css.format.braceStyle": "expand",
+  "files.autoSave": "onFocusChange",
+  "C_Cpp.vcFormat.newLine.beforeOpenBrace.block": "newLine",
+  "js/ts.format.insertSpaceAfterOpeningAndBeforeClosingTemplateStringBraces": false,
+  "js/ts.format.placeOpenBraceOnNewLineForControlBlocks": true,
+  "js/ts.format.placeOpenBraceOnNewLineForFunctions": true,
+  "python.terminal.useEnvFile": true,
+  "editor.cursorSmoothCaretAnimation": "on",
+  "editor.smoothScrolling": true,
+  "workbench.list.smoothScrolling": true,
+  "terminal.integrated.smoothScrolling": true,
+  "editor.cursorBlinking": "smooth",
+  "workbench.list.mouseWheelScrollSensitivity": 1.5,
+  "editor.mouseWheelScrollSensitivity": 1.5
+}

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.vercel/
+.env
+.env.*
+!.env.example
+npm-debug.log*
+*.local.db
+*.local.db-shm
+*.local.db-wal
+mail-flow.test.db
+mail-flow.test.db-shm
+mail-flow.test.db-wal
+.vercel
+.env*
