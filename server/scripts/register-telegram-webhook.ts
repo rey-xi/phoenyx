@@ -3,7 +3,7 @@ import { Bot } from "grammy";
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-const baseUrl = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, "");
+const baseUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.replace(/\/+$/, "");
 
 if (!token) throw new Error("Set TELEGRAM_BOT_TOKEN.");
 
