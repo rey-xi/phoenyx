@@ -4,9 +4,9 @@ import {
   getTelegramMode,
   testTelegramUpdate,
 } from "../methods/telegram.methods.js";
-import { bot } from "../clients/grammy.client.js";
+import { bot, ensureBotInitialized } from "../clients/grammy.client.js";
 
-const PROCESSING_TIMEOUT_MS = 6000; // safely under Vercel Hobby's 10s limit
+const PROCESSING_TIMEOUT_MS = 6000;
 
 export const telegramHandler: RequestHandler = async (request, response) => {
   if (getTelegramMode() !== "webhook") {
@@ -68,6 +68,7 @@ export const telegramHandler: RequestHandler = async (request, response) => {
   });
 
   try {
+    await ensureBotInitialized();
     const outcome = await Promise.race([
       bot.handleUpdate(request.body).then(() => "ok" as const),
       timeout,

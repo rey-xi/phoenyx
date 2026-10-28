@@ -1,7 +1,7 @@
 import { Bot } from "grammy";
 import { Router } from "express";
 import { telegramHandler } from "../handlers/telegram.handlers.js";
-import { activateTelegramBot } from "../clients/grammy.client.js";
+import { broadcastBotCommands } from "../clients/grammy.client.js";
 
 const router = Router();
 
@@ -34,7 +34,7 @@ router.get("/webhook/register", async (_req, res) => {
     };
     if (secret) payload.secret_token = secret;
     await bot.api.setWebhook(url, payload);
-    void activateTelegramBot().catch((error: unknown) => {
+    void broadcastBotCommands().catch((error: unknown) => {
       console.error("Telegram bot activation failed:", error);
     });
     res.json({

@@ -1,5 +1,5 @@
 import app from "./app.js";
-import { activateTelegramBot } from "./clients/grammy.client.js";
+import { broadcastBotCommands } from "./clients/grammy.client.js";
 import { startTelegramPolling } from "./methods/telegram.methods.js";
 
 const port = Number(process.env.PORT ?? 3001);
@@ -12,7 +12,7 @@ void startTelegramPolling().catch((error: unknown) => {
   );
 });
 
-void activateTelegramBot().catch((error: unknown) => {
+void broadcastBotCommands().catch((error: unknown) => {
   console.error("Telegram bot activation failed:", error);
 });
 

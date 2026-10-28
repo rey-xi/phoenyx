@@ -4,7 +4,6 @@ import express from "express";
 import leadsRoutes from "./routes/lead.routes.js";
 import telegramRoutes from "./routes/telegram.routes.js";
 import { errorHandler, notFoundHandler } from "./middleware/errors.js";
-import { activateTelegramBot } from "./clients/grammy.client.js";
 
 const app = express();
 app.set("trust proxy", 1);
