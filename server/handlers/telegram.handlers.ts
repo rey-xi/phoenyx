@@ -6,6 +6,8 @@ import {
 } from "../methods/telegram.methods.js";
 import { bot } from "../clients/grammy.client.js";
 
+const PROCESSING_TIMEOUT_MS = 6000; // safely under Vercel Hobby's 10s limit
+
 export const telegramHandler: RequestHandler = async (request, response) => {
   if (getTelegramMode() !== "webhook") {
     response.status(409).json({
@@ -17,27 +19,38 @@ export const telegramHandler: RequestHandler = async (request, response) => {
     });
     return;
   }
+
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
   const provided = request.get("X-Telegram-Bot-Api-Secret-Token");
-  if (!secret || !provided) {
-    response.status(401).json({
-      ok: false,
-      error: { code: "UNAUTHORIZED", message: "Webhook authorization failed." },
-    });
-    return;
+
+  if (secret) {
+    if (!provided) {
+      response.status(401).json({
+        ok: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Webhook authorization failed.",
+        },
+      });
+      return;
+    }
+    const expected = Buffer.from(secret);
+    const actual = Buffer.from(provided);
+    if (
+      expected.length !== actual.length ||
+      !timingSafeEqual(expected, actual)
+    ) {
+      response.status(401).json({
+        ok: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Webhook authorization failed.",
+        },
+      });
+      return;
+    }
   }
-  const expectedBytes = Buffer.from(secret);
-  const providedBytes = Buffer.from(provided);
-  if (
-    expectedBytes.length !== providedBytes.length ||
-    !timingSafeEqual(expectedBytes, providedBytes)
-  ) {
-    response.status(401).json({
-      ok: false,
-      error: { code: "UNAUTHORIZED", message: "Webhook authorization failed." },
-    });
-    return;
-  }
+
   if (!testTelegramUpdate(request.body)) {
     response.status(400).json({
       ok: false,
@@ -48,17 +61,26 @@ export const telegramHandler: RequestHandler = async (request, response) => {
     });
     return;
   }
+
+  let timeoutHandle: NodeJS.Timeout | undefined;
+  const timeout = new Promise<"timeout">((resolve) => {
+    timeoutHandle = setTimeout(() => resolve("timeout"), PROCESSING_TIMEOUT_MS);
+  });
+
   try {
-    await bot.handleUpdate(request.body);
-    response.sendStatus(200);
-  } catch {
-    console.error("Telegram webhook update could not be processed.");
-    response.status(503).json({
-      ok: false,
-      error: {
-        code: "WEBHOOK_UNAVAILABLE",
-        message: "The Telegram update could not be processed.",
-      },
-    });
+    const outcome = await Promise.race([
+      bot.handleUpdate(request.body).then(() => "ok" as const),
+      timeout,
+    ]);
+    if (outcome === "timeout") {
+      console.warn(
+        `Telegram update exceeded ${PROCESSING_TIMEOUT_MS}ms; acknowledging anyway.`,
+      );
+    }
+  } catch (err) {
+    console.error("Telegram webhook update could not be processed:", err);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
   }
+  response.sendStatus(200);
 };

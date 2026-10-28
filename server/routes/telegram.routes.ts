@@ -34,7 +34,9 @@ router.get("/webhook/register", async (_req, res) => {
     };
     if (secret) payload.secret_token = secret;
     await bot.api.setWebhook(url, payload);
-    await activateTelegramBot();
+    void activateTelegramBot().catch((error: unknown) => {
+      console.error("Telegram bot activation failed:", error);
+    });
     res.json({
       ok: true,
       url,

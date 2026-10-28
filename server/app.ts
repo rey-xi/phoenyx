@@ -16,8 +16,4 @@ app.use("/api/telegram", telegramRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-void activateTelegramBot().catch((error: unknown) => {
-  console.error("Telegram bot activation failed:", error);
-});
-
 export default app;
