@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { BrandMark } from "../components/BrandMark";
-import { getMailProvider } from "../hooks/providers";
-import { useLeadChannel } from "../hooks/useLeadChannel";
+import { getMailProvider } from "../libs/providers";
+import { useLeadChannel } from "../libs/channel";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 
 export function ProviderPage() {

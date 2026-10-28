@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BrandMark } from "../components/BrandMark";
-import { providers } from "../hooks/providers";
+import { providers } from "../libs/providers";
 import type { Provider } from "../types/api";
 
 export function ProviderSelector() {

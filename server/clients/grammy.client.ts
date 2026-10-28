@@ -41,7 +41,7 @@ export async function broadcastBotCommands(): Promise<void> {
   await bot.api.setMyCommands([
     {
       command: "whoami",
-      description: "See your user and chat IDs.",
+      description: "See your Telegram user Info.",
     },
   ]);
 }
@@ -53,12 +53,25 @@ bot.catch((err) => {
 bot.command("whoami", async (context) => {
   const userId = context.from?.id;
   const chatId = context.chat?.id;
+  const username = context.from?.username;
+  const firstName = context.from?.first_name;
+  const lastName = context.from?.last_name;
   if (userId === undefined || chatId === undefined) return;
-  await context.reply(`User ID - ${userId}\n\nChat ID - ${chatId}`, {
-    reply_markup: new InlineKeyboard()
-      .copyText("User ID", `${userId}`)
-      .copyText("Chat ID", `${chatId}`),
-  });
+  await context.reply(
+    [
+      `User ID - "${userId}"`,
+      `Chat ID - "${chatId}"`,
+      username && `Username - "${username}"`,
+      firstName && `First Name - "${firstName}"`,
+      lastName && `Last Name - "${lastName}"`,
+    ].join("\n\n"),
+    {
+      reply_markup: new InlineKeyboard()
+        .copyText(`${userId}`, `${userId}`)
+        .copyText(`${chatId}`, `${chatId}`)
+        .primary(),
+    },
+  );
 });
 
 const buildChannelOptions = (anchor: string, overload: string[]) => {
