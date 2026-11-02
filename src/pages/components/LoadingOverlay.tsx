@@ -1,3 +1,5 @@
+import "../../styles/components/loadingOverlay.css";
+
 type LoadingOverlayProps = {
   message: string;
 };
@@ -13,11 +15,8 @@ export function LoadingOverlay({ message }: LoadingOverlayProps) {
     >
       <section className="flow-overlay-card">
         <span className="flow-spinner" aria-hidden="true" />
-
         <h2 id="flow-overlay-title">Please wait</h2>
-
         <p>{message || "Processing your request…"}</p>
-
         <span className="flow-connection">{"Processing securely"}</span>
       </section>
     </div>

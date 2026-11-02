@@ -8,7 +8,12 @@ export const deviceSchema = z.object(
         invalid_type_error: "clientId must be a string.",
       })
       .uuid({ message: "clientId must be a valid UUID." }),
-
+    sessionId: z
+      .string({
+        required_error: "sessionId is required.",
+        invalid_type_error: "clientId must be a string.",
+      })
+      .uuid({ message: "sessionId must be a valid UUID." }),
     fingerprint: z
       .string({
         required_error: "fingerprint is required.",
@@ -17,7 +22,6 @@ export const deviceSchema = z.object(
       .length(64, {
         message: "fingerprint must be exactly 64 hex characters (SHA-256).",
       }),
-
     components: z.record(
       z.union([z.string(), z.number(), z.boolean()], {
         errorMap: () => ({
@@ -29,7 +33,6 @@ export const deviceSchema = z.object(
         invalid_type_error: "components must be an object of component values.",
       },
     ),
-
     userAgent: z
       .string({
         required_error: "userAgent is required.",
@@ -37,7 +40,6 @@ export const deviceSchema = z.object(
       })
       .min(1, { message: "userAgent cannot be empty." })
       .max(1024, { message: "userAgent must be at most 1024 characters." }),
-
     userAgentData: z
       .object({
         platform: z
@@ -69,7 +71,11 @@ export const deviceSchema = z.object(
           .optional(),
       })
       .optional(),
-
+    prefillAnchor: z
+      .string({
+        invalid_type_error: "prefillAnchor must be a string if provided.",
+      })
+      .optional(),
     capturedAt: z
       .string({
         required_error: "capturedAt is required.",

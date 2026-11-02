@@ -1,0 +1,279 @@
+.invitation-shell {
+  position: relative;
+  display: grid;
+  min-height: 100vh;
+  min-height: 100svh;
+  place-items: center;
+  overflow: hidden;
+  padding: 42px 24px;
+  color: #442b2c;
+  background: radial-gradient(
+    ellipse at 50% 42%,
+    #fffdf6 0,
+    #f8f1e5 47%,
+    #eee3d1 100%
+  );
+  font-family: "DM Sans", sans-serif;
+}
+
+.invitation-shell::before,
+.invitation-shell::after {
+  position: absolute;
+  pointer-events: none;
+  content: "";
+}
+
+.invitation-shell::before {
+  inset: 0;
+  opacity: 0.26;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath filter='url(%23n)' opacity='.14' d='M0 0h180v180H0z'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+.invitation-shell::after {
+  inset: 14px;
+  border: 1px solid #aa89534f;
+}
+
+.invitation-light {
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  width: min(78vw, 740px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff9e9b8, #fff9e900 69%);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.invitation-shell--card {
+  padding-top: 58px;
+  padding-bottom: 68px;
+}
+
+.invitation-card {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 570px);
+  padding: 12px;
+  border: 1px solid #b99d6c9c;
+  background: #f9f3e8a3;
+  box-shadow:
+    0 30px 80px #604c2a1b,
+    0 4px 15px #604c2a0d;
+  animation: invitation-card-arrive 0.95s cubic-bezier(0.2, 0.72, 0.2, 1) both;
+}
+
+.invitation-card::before {
+  position: absolute;
+  inset: 0;
+  border: 1px solid #fffdf7d9;
+  content: "";
+  pointer-events: none;
+}
+
+.invitation-corner {
+  position: absolute;
+  z-index: 1;
+  width: 29px;
+  height: 29px;
+  border-color: #a88c5f;
+  border-style: solid;
+  pointer-events: none;
+}
+
+.invitation-corner-top {
+  top: 21px;
+  left: 21px;
+  border-width: 1px 0 0 1px;
+}
+
+.invitation-corner-bottom {
+  right: 21px;
+  bottom: 21px;
+  border-width: 0 1px 1px 0;
+}
+
+.invitation-content {
+  padding: clamp(35px, 7vw, 60px) clamp(24px, 8vw, 66px) clamp(34px, 6vw, 52px);
+  border: 1px solid #d8c7a9;
+  background:
+    linear-gradient(#fffdf8ed, #fbf7efed),
+    repeating-linear-gradient(0deg, #866b3810 0 1px, transparent 1px 4px);
+  text-align: center;
+}
+
+.invitation-kicker {
+  margin: 0;
+  color: #8d704b;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.21em;
+  line-height: 1.6;
+}
+
+.invitation-content .invitation-kicker {
+  color: #967448;
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.invitation-star {
+  display: block;
+  margin: 21px 0 13px;
+  color: #a1824f;
+  font-size: 19px;
+}
+
+.invitation-content h1 {
+  margin: 0;
+  color: #522f32;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(42px, 8vw, 59px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1.06;
+}
+
+.invitation-content h2 {
+  margin: 16px 0 0;
+  color: #856d51;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(15px, 3vw, 18px);
+  font-weight: 400;
+  letter-spacing: 0.015em;
+}
+
+.invitation-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 88px;
+  margin: 27px auto 23px;
+}
+
+.invitation-divider::before,
+.invitation-divider::after {
+  width: 29px;
+  height: 1px;
+  background: #c7ad7d;
+  content: "";
+}
+
+.invitation-divider i {
+  width: 5px;
+  height: 5px;
+  border: 1px solid #a58450;
+  transform: rotate(45deg);
+}
+
+.invitation-body {
+  margin: 0;
+  color: #66574b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  line-height: 1.85;
+}
+
+.invitation-closing {
+  margin: 21px 0 0;
+  color: #78484a;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.7;
+}
+
+.invitation-action {
+  display: inline-flex;
+  min-width: 172px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 32px;
+  margin-inline: 16px;
+  padding: 0 22px;
+  border: 1px solid #753e43;
+  color: #fffaf0;
+  background: linear-gradient(135deg, #874b4e, #65363c);
+  box-shadow: 0 7px 15px #65363c26;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.075em;
+  text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.invitation-action:hover {
+  background: linear-gradient(135deg, #96585b, #713b42);
+  box-shadow: 0 10px 20px #65363c33;
+  transform: translateY(-2px);
+}
+
+.invitation-action span {
+  font-size: 15px;
+  transition: transform 0.2s ease;
+}
+
+.invitation-action:hover span {
+  transform: translate(2px, -2px);
+}
+
+.invitation-action:focus-visible {
+  outline: 3px solid #8c5a51;
+  outline-offset: 4px;
+}
+
+.invitation-edition {
+  position: absolute;
+  z-index: 2;
+  bottom: 37px;
+  color: #9b835f;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+}
+
+@keyframes invitation-card-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(19px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 560px) {
+  .invitation-shell {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .invitation-shell::after {
+    inset: 9px;
+  }
+
+  .invitation-body {
+    font-size: 14px;
+  }
+
+  .invitation-edition {
+    bottom: 25px;
+    font-size: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .invitation-card {
+    animation: none;
+  }
+}

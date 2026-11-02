@@ -10,6 +10,8 @@
     "build": "tsc --noEmit && vite build",
     "start": "tsx server/dev.ts",
     "typecheck": "tsc --noEmit",
+    "check:telegram": "tsx scripts/telegram-smoke.ts",
+    "check:api": "tsx scripts/api-smoke.ts",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

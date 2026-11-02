@@ -1,0 +1,255 @@
+.envelope-stage {
+  display: grid;
+  width: 100%;
+  min-height: 266px;
+  place-items: center;
+  margin-top: 15px;
+  margin-bottom: 16px;
+  perspective: 1000px;
+}
+
+.envelope {
+  --flap-open-duration: 0.78s;
+
+  position: relative;
+  width: min(82vw, 360px);
+  aspect-ratio: 360 / 220;
+  filter: drop-shadow(0 24px 23px #674e2b24) drop-shadow(0 4px 5px #674e2b15);
+  isolation: isolate;
+}
+
+.envelope-back {
+  position: absolute;
+  z-index: 0;
+  inset: 10% 2.2% 0;
+  border: 1px solid #c9b18c;
+  border-radius: 4px;
+  background: linear-gradient(145deg, #e8d7b8, #d8c29c);
+}
+
+.envelope-flap-layer {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform-box: view-box;
+  transform-origin: 50% 10%;
+}
+
+.invitation-letter {
+  position: absolute;
+  z-index: 1;
+  bottom: 8%;
+  left: 13%;
+  display: flex;
+  width: 74%;
+  height: 82%;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 23px;
+  border: 1px solid #e5d9c1;
+  background: linear-gradient(90deg, #fffdf8, #faf5e9 52%, #fffdf8);
+  box-shadow: 0 2px 9px #513c251c;
+  opacity: 0.95;
+  transform: translateY(17%);
+}
+
+.letter-ornament {
+  color: #8d6841;
+  font:
+    italic 29px/1 Georgia,
+    serif;
+}
+
+.letter-rule {
+  width: 46%;
+  height: 1px;
+  margin-top: 14px;
+  background: #c4a878a6;
+}
+
+.letter-rule-short {
+  width: 28%;
+  margin-top: 7px;
+  opacity: 0.7;
+}
+
+.envelope-front {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.envelope-seal {
+  position: absolute;
+  z-index: 3;
+  top: 53%;
+  left: 50%;
+  display: grid;
+  width: 62px;
+  height: 62px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #d7ad67;
+  border-radius: 50%;
+  color: #f6e5bd;
+  background: radial-gradient(
+    circle at 35% 28%,
+    #bd7770 0,
+    #8d3f43 46%,
+    #642c34 100%
+  );
+  box-shadow:
+    inset 0 1px 2px #fff7df88,
+    inset 0 -4px 7px #4d202a72,
+    0 4px 10px #5b31304a,
+    0 0 0 4px #b4935c52;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition:
+    filter 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.envelope-seal::before {
+  position: absolute;
+  inset: 6px;
+  border: 1px solid #e3c9918c;
+  border-radius: inherit;
+  content: "";
+}
+
+.envelope-seal:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 1px 2px #fff7df88,
+    inset 0 -4px 7px #4d202a72,
+    0 6px 14px #5b31305c,
+    0 0 0 5px #b4935c66;
+}
+
+.envelope-seal:focus-visible {
+  outline: 3px solid #73434a;
+  outline-offset: 8px;
+}
+
+.envelope-seal:disabled {
+  cursor: default;
+}
+
+.seal-mark {
+  font-size: 24px;
+  line-height: 1;
+  text-shadow: 0 1px 2px #4821277d;
+}
+
+.envelope:not(.is-opening) .envelope-seal {
+  animation: seal-breathe 4s ease-in-out infinite;
+}
+
+.is-opening .envelope-flap-layer {
+  animation: flap-open var(--flap-open-duration)
+    cubic-bezier(0.55, 0.08, 0.2, 1) both;
+}
+
+.is-opening .envelope-seal {
+  animation: seal-release 0.38s ease-in forwards;
+  pointer-events: none;
+}
+
+.is-opening .invitation-letter {
+  animation: letter-emerge 1.35s cubic-bezier(0.26, 0.72, 0.24, 1)
+    var(--flap-open-duration) both;
+}
+
+@keyframes seal-breathe {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 2px #fff7df88,
+      inset 0 -4px 7px #4d202a72,
+      0 4px 10px #5b31304a,
+      0 0 0 4px #b4935c52;
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 2px #fff7df88,
+      inset 0 -4px 7px #4d202a72,
+      0 6px 13px #5b31304a,
+      0 0 0 6px #b4935c42;
+  }
+}
+
+@keyframes seal-release {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.72) rotate(-12deg);
+  }
+}
+
+@keyframes flap-open {
+  0% {
+    transform: rotateX(0);
+    z-index: 3;
+  }
+  99.9% {
+    transform: rotateX(180deg);
+    z-index: 3;
+  }
+  100% {
+    transform: rotateX(180deg);
+    z-index: 1;
+  }
+}
+
+@keyframes letter-emerge {
+  0% {
+    transform: translateY(17%);
+  }
+  42% {
+    transform: translateY(-96%);
+  }
+  100% {
+    transform: translateY(-78%);
+  }
+}
+
+@media (max-width: 560px) {
+  .envelope-stage {
+    min-height: 229px;
+    margin-top: 5px;
+  }
+
+  .envelope-seal {
+    width: 55px;
+    height: 55px;
+  }
+}
+
+@media (max-height: 650px) and (min-width: 561px) {
+  .envelope-stage {
+    min-height: 224px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .envelope {
+    --flap-open-duration: 0.01ms;
+  }
+
+  .envelope:not(.is-opening) .envelope-seal {
+    animation: none;
+  }
+
+  .is-opening .envelope-flap-layer,
+  .is-opening .envelope-seal,
+  .is-opening .invitation-letter {
+    animation-duration: 0.01ms;
+    transition-duration: 0.01ms;
+  }
+}

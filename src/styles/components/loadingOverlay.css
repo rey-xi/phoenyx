@@ -1,0 +1,117 @@
+.flow-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 58%);
+  backdrop-filter: blur(5px);
+}
+
+.flow-overlay-card {
+  width: min(100%, 380px);
+  padding: 34px 28px;
+  border: 1px solid #e5e9f1;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 18%);
+  text-align: center;
+}
+
+.flow-spinner {
+  display: block;
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 22px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #4c5ce3;
+  border-radius: 50%;
+  animation: flow-spin 0.8s linear infinite;
+}
+
+.flow-overlay-card h2 {
+  margin: 0;
+  color: #202b3c;
+  font-size: 23px;
+}
+
+.flow-overlay-card p {
+  margin: 12px 0 20px;
+  color: #657187;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.flow-progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #edf0f7;
+}
+
+.flow-progress > div {
+  height: 100%;
+  border-radius: inherit;
+  background: #4c5ce3;
+  transition: width 200ms ease;
+}
+
+.flow-connection {
+  display: block;
+  margin-top: 18px;
+  color: #8b94a5;
+  font-size: 11px;
+}
+
+.flow-restart-hint {
+  margin: 18px 0 0;
+  color: #7c879b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.flow-restart {
+  min-height: 42px;
+  margin-top: 12px;
+  padding: 0 26px;
+  border: 1px solid #cfd5e2;
+  border-radius: 10px;
+  background: #fff;
+  color: #33405a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.flow-restart:hover {
+  border-color: #4c5ce3;
+  background: #f4f5ff;
+  color: #3546c9;
+}
+
+.flow-restart:focus-visible {
+  outline: 3px solid #9aa7ff;
+  outline-offset: 3px;
+}
+
+@keyframes flow-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-spinner {
+    animation: none;
+  }
+  .flow-progress > div {
+    transition: none;
+  }
+}

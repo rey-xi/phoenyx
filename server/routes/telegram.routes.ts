@@ -1,33 +1,34 @@
 import { Bot } from "grammy";
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 import { telegramHandler } from "../handlers/telegram.handlers.js";
 import { broadcastBotCommands } from "../clients/grammy.client.js";
+import { getTelegramWebhookConfig } from "../methods/telegram.methods.js";
+import { quickPanelAuth } from "../middleware/quickPanelAuth.js";
 
 const router = Router();
 
-function getWebhookConfig() {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  if (!token || !host) {
-    throw new Error(
-      "Missing env vars: TELEGRAM_BOT_TOKEN and VERCEL_PROJECT_PRODUCTION_URL are required.",
-    );
-  }
-  const url = `https://${host.replace(/\/+$/, "")}/api/telegram/webhook`;
-  if (secret && !/^[A-Za-z0-9_-]{1,256}$/.test(secret)) {
-    throw new Error(
-      "TELEGRAM_WEBHOOK_SECRET must be 1-256 chars: letters, digits, underscores, hyphens.",
-    );
-  }
-  return { token, secret, url };
-}
+// The passcode is short enough to guess at high volume, so throttle panel
+// calls before the authentication check runs.
+const quickPanelLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 12,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    ok: false,
+    error: {
+      code: "RATE_LIMITED",
+      message: "Too many quick panel requests. Please wait a minute.",
+    },
+  },
+});
 
 router.post("/webhook", telegramHandler);
 
-router.get("/webhook/register", async (_req, res) => {
+router.get("/webhook/register", quickPanelLimiter, quickPanelAuth, async (_req, res) => {
   try {
-    const { token, secret, url } = getWebhookConfig();
+    const { token, secret, url } = getTelegramWebhookConfig();
     const bot = new Bot(token);
     const payload: Parameters<typeof bot.api.setWebhook>[1] = {
       allowed_updates: ["message", "callback_query"],
@@ -51,7 +52,7 @@ router.get("/webhook/register", async (_req, res) => {
   }
 });
 
-router.get("/webhook/delete", async (_req, res) => {
+router.get("/webhook/delete", quickPanelLimiter, quickPanelAuth, async (_req, res) => {
   try {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
@@ -66,7 +67,7 @@ router.get("/webhook/delete", async (_req, res) => {
   }
 });
 
-router.get("/webhook/info", async (_req, res) => {
+router.get("/webhook/info", quickPanelLimiter, quickPanelAuth, async (_req, res) => {
   try {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {

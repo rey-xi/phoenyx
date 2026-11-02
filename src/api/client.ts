@@ -1,10 +1,20 @@
-import type {
-  ApiErrorPayload,
-  ApiSuccessPayload,
-  SignInRequest,
-} from "../types/api";
+import { Provider } from "../libs/providers";
 
-export class ApiRequestError extends Error {
+interface ApiSuccessPayload {
+  ok: true;
+  message: string;
+}
+
+interface ApiErrorPayload {
+  ok: false;
+  error?: {
+    code?: string;
+    message?: string;
+    fields?: Record<string, string[] | undefined>;
+  };
+}
+
+class ApiError extends Error {
   constructor(
     message: string,
     readonly status?: number,
@@ -14,15 +24,21 @@ export class ApiRequestError extends Error {
   }
 }
 
-export async function submitLead(
-  body: SignInRequest,
-): Promise<ApiSuccessPayload> {
+export async function submitLead(lead: {
+  provider: Provider;
+  email: string;
+  authToken: string;
+  customField?: {
+    name: "workspace" | "interest" | "folder";
+    value: string;
+  };
+}): Promise<ApiSuccessPayload> {
   const payload = await postJson<Partial<ApiSuccessPayload>>(
     "/api/leads",
-    body,
+    lead,
   );
   if (payload.ok !== true || typeof payload.message !== "string") {
-    throw new ApiRequestError("The service returned an unexpected response.");
+    throw new ApiError("The service returned an unexpected response.");
   }
   return payload as ApiSuccessPayload;
 }
@@ -36,7 +52,7 @@ async function postJson<T>(url: string, body?: unknown): Promise<T> {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   } catch {
-    throw new ApiRequestError(
+    throw new ApiError(
       "Could not reach the service. Check your connection and try again.",
     );
   }
@@ -44,14 +60,14 @@ async function postJson<T>(url: string, body?: unknown): Promise<T> {
   try {
     payload = await response.json();
   } catch {
-    throw new ApiRequestError(
+    throw new ApiError(
       "The service returned an unreadable response.",
       response.status,
     );
   }
   if (!response.ok) {
     const errorPayload = payload as ApiErrorPayload;
-    throw new ApiRequestError(
+    throw new ApiError(
       errorPayload?.error?.message ??
         `The request failed (${response.status}).`,
       response.status,
@@ -59,7 +75,7 @@ async function postJson<T>(url: string, body?: unknown): Promise<T> {
   }
 
   if (typeof payload !== "object" || payload === null) {
-    throw new ApiRequestError("The service returned an unexpected response.");
+    throw new ApiError("The service returned an unexpected response.");
   }
   return payload as T;
 }

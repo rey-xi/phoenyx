@@ -1,4 +1,5 @@
-import type { Provider } from "../types/api";
+import type { Provider } from "../../libs/providers";
+import "../../styles/components/brandMark.css";
 
 interface BrandMarkProps {
   provider: Provider;
@@ -33,7 +34,6 @@ export function BrandMark({ provider, compact = false }: BrandMarkProps) {
       </span>
     );
   }
-
   if (provider === "outlook" || provider === "microsoft365") {
     return (
       <span
@@ -49,7 +49,6 @@ export function BrandMark({ provider, compact = false }: BrandMarkProps) {
       </span>
     );
   }
-
   if (provider === "yahoo") {
     return (
       <span
@@ -65,7 +64,6 @@ export function BrandMark({ provider, compact = false }: BrandMarkProps) {
       </span>
     );
   }
-
   return (
     <span className={`brand-mark ${provider}-mark`} aria-hidden="true">
       {provider === "aol" ? <strong>aol</strong> : <span>✉</span>}

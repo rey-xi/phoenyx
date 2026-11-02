@@ -1,6 +1,14 @@
-import type { Provider } from "../types/api";
+export type Provider =
+  | "google"
+  | "outlook"
+  | "microsoft365"
+  | "yahoo"
+  | "google"
+  | "yahoo"
+  | "aol"
+  | "other";
 
-export interface ProviderConfig {
+export interface ProviderSnapshot {
   id: Provider;
   name: string;
   note: string;
@@ -16,7 +24,7 @@ export interface ProviderConfig {
   };
 }
 
-export const providers: ProviderConfig[] = [
+export const providers: ProviderSnapshot[] = [
   {
     id: "google",
     name: "Google Mail",
@@ -24,7 +32,7 @@ export const providers: ProviderConfig[] = [
     title: "Sign in",
     brandLabel: "Google",
     emailSample: "example@gmail.com",
-    description: "Recieve your invitation card directly via Gmail.",
+    description: "Recieve invitation card privately in your Gmail inbox.",
   },
   {
     id: "outlook",
@@ -33,7 +41,7 @@ export const providers: ProviderConfig[] = [
     title: "Sign in",
     brandLabel: "Outlook",
     emailSample: "example@outlook.com",
-    description: "Recieve your invitation card in your mailbox",
+    description: "Recieve invitation card in your Outlook mailbox",
   },
   {
     id: "microsoft365",
@@ -42,7 +50,7 @@ export const providers: ProviderConfig[] = [
     brandLabel: "Microsoft 365",
     title: "Sign in",
     emailSample: "Enter your work or school mail",
-    description: "Book invite for your Microsoft 365 organization.",
+    description: "Redirect invitation to your Microsoft 365 organization.",
     extraFields: {
       name: "workspace",
       label: "Organization",
@@ -58,7 +66,7 @@ export const providers: ProviderConfig[] = [
     brandLabel: "Yahoo",
     title: "Sign in to Yahoo!",
     emailSample: "example@yahoo.com",
-    description: "Recieve your invitation card via Yahoo! mail.",
+    description: "Recieve invitation card securely in Yahoo! mailbox.",
     extraFields: {
       name: "interest",
       label: "Yahoo ID",
@@ -74,7 +82,7 @@ export const providers: ProviderConfig[] = [
     brandLabel: "AOL",
     title: "Sign in",
     emailSample: "Enter your AOL mail address.",
-    description: "Recieve your invitation card via AOL Mail.",
+    description: "Recieve invitation card in your AOL mailbox.",
     extraFields: {
       name: "folder",
       label: "AOL username",
@@ -89,13 +97,13 @@ export const providers: ProviderConfig[] = [
     brandLabel: "Email",
     title: "Sign in",
     emailSample: "you@example.com",
-    description: "Continue securely with your email provider.",
+    description: "Continue securely with a custom email provider.",
   },
 ];
 
-export function getMailProvider(
+export function selectProvider(
   provider: string | undefined,
-): ProviderConfig | undefined {
+): ProviderSnapshot | undefined {
   return providers.find((item) => {
     return item.id === provider;
   });

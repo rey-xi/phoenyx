@@ -1,44 +1,44 @@
 import { RequestHandler } from "express";
 import { deviceSchema } from "../schemas/device.schema.js";
-import { secureDeviceSlot } from "../methods/device.methods.js";
+import { describeDevice, prospectDevice } from "../methods/device.methods.js";
+import {
+  restartLeadSession,
+  updateLeadSession,
+} from "../methods/lead.methods.js";
+import { sendSessionToTelegram } from "../methods/session.methods.js";
 
 export const devicePostHandler: RequestHandler = async (request, response) => {
   const device = deviceSchema.safeParse(request.body);
   if (!device.success) {
-    response.status(400).json({
+    const first = device.error.issues[0];
+    return response.status(400).json({
       ok: false,
       error: {
-        code: "VALIDATION_ERROR",
-        message: device.error.issues[0].message,
+        code: "INVALID_DEVICE_PAYLOAD",
+        message: first?.message ?? "Invalid device payload.",
+        field: first?.path.join(".") ?? null,
       },
     });
-    return;
   }
   try {
-    const deviceSlot = await secureDeviceSlot(device.data);
-    const deviceStatus = {
-      known: "Known Device",
-      migrated: "Migrated Known Device",
-      new: "NEW DEVICE",
-    } as const;
-    const deviceSummary = [
-      `Status: ${deviceStatus[deviceSlot.status]}`,
-      `Match: ${deviceSlot.trustScore.toFixed(2)}`,
-      `UA: ${device.data.userAgent.slice(0, 80)}`,
-      `Screen: ${device.data.components.screen}`,
-      `TZ: ${device.data.components.timezone}`,
-    ].join("\n");
-    response.status(202).json(deviceSlot.trustScore);
-  } catch (e) {
-    console.error("Lead channel failed", e);
-    response.status(503).json({
+    const deviceStatus = await prospectDevice(device.data);
+    const deviceInfo = await describeDevice(device.data.clientId);
+    if (deviceInfo) {
+      const session = await restartLeadSession(device.data.sessionId, {
+        merge: true,
+        notification: deviceInfo,
+      });
+      const result = await sendSessionToTelegram(session, { resend: true });
+      await updateLeadSession(device.data.sessionId, result);
+    }
+    response.json(deviceStatus);
+  } catch (err) {
+    console.error("Device registration failed:", err);
+    response.status(500).json({
       ok: false,
       error: {
-        code: "LEAD_CHANNEL_FAILED",
-        message:
-          e instanceof Error
-            ? e.message
-            : "An error occurred. \nPlease try again.",
+        code: "DEVICE_REGISTER_FAILED",
+        message: "Device registration failed.",
       },
     });
   }

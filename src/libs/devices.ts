@@ -1,7 +1,12 @@
-const STORAGE_KEY = "phoenyx.device.id";
+const CLIENT_STORAGE_KEY = "phoenyx.client.id";
+const SESSION_STORAGE_KEY = "phoenyx.session.id";
+
+let cachedClientId: string | null = null;
+let cachedSesssionId: string | null = null;
 
 export type DeviceSnapshot = {
   clientId: string;
+  sessionId: string;
   fingerprint: string;
   components: Record<string, string | number | boolean>;
   userAgent: string;
@@ -13,16 +18,39 @@ export type DeviceSnapshot = {
   capturedAt: string;
 };
 
-function getOrCreateClientId(): string {
-  let id = localStorage.getItem(STORAGE_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(STORAGE_KEY, id);
+export function getClientId(): string {
+  if (cachedClientId) return cachedClientId;
+  try {
+    let id = localStorage.getItem(CLIENT_STORAGE_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(CLIENT_STORAGE_KEY, id);
+    }
+    cachedClientId = id;
+    return id;
+  } catch {
+    cachedClientId = `ephemeral-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return cachedClientId;
   }
-  return id;
 }
 
-async function sha256(input: string): Promise<string> {
+export function getSessionId(): string {
+  if (cachedSesssionId) return cachedSesssionId;
+  try {
+    let id = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      sessionStorage.setItem(SESSION_STORAGE_KEY, id);
+    }
+    cachedSesssionId = id;
+    return id;
+  } catch {
+    cachedSesssionId = `ephemeral-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return cachedSesssionId;
+  }
+}
+
+async function getSHA256(input: string): Promise<string> {
   const buf = new TextEncoder().encode(input);
   const hash = await crypto.subtle.digest("SHA-256", buf);
   return Array.from(new Uint8Array(hash))
@@ -30,7 +58,7 @@ async function sha256(input: string): Promise<string> {
     .join("");
 }
 
-async function canvasHash(): Promise<string> {
+async function getCanvasHash(): Promise<string> {
   try {
     const canvas = document.createElement("canvas");
     canvas.width = 200;
@@ -43,13 +71,13 @@ async function canvasHash(): Promise<string> {
     ctx.fillRect(0, 0, 100, 20);
     ctx.fillStyle = "#069";
     ctx.fillText("device-probe-🎯", 2, 15);
-    return sha256(canvas.toDataURL());
+    return await getSHA256(canvas.toDataURL());
   } catch {
     return "canvas-error";
   }
 }
 
-function webglInfo(): { vendor: string; renderer: string } {
+function getWebglInfo(): { vendor: string; renderer: string } {
   try {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl") as WebGLRenderingContext | null;
@@ -70,10 +98,10 @@ function webglInfo(): { vendor: string; renderer: string } {
   }
 }
 
-export async function collectDevice(): Promise<DeviceSnapshot> {
+export async function selectDevice(): Promise<DeviceSnapshot> {
   const uaData = (navigator as unknown as { userAgentData?: any })
     .userAgentData;
-  const gl = webglInfo();
+  const gl = getWebglInfo();
   const components: Record<string, string | number | boolean> = {
     userAgent: navigator.userAgent,
     language: navigator.language,
@@ -86,16 +114,16 @@ export async function collectDevice(): Promise<DeviceSnapshot> {
     deviceMemory:
       (navigator as unknown as { deviceMemory?: number }).deviceMemory ?? 0,
     touch: navigator.maxTouchPoints > 0,
-    canvas: await canvasHash(),
+    canvas: await getCanvasHash(),
     webglVendor: gl.vendor,
     webglRenderer: gl.renderer,
     uaPlatform: uaData?.platform ?? "",
     uaMobile: Boolean(uaData?.mobile),
   };
-
   return {
-    clientId: getOrCreateClientId(),
-    fingerprint: await sha256(JSON.stringify(components)),
+    clientId: getClientId(),
+    sessionId: getSessionId(),
+    fingerprint: await getSHA256(JSON.stringify(components)),
     components,
     userAgent: navigator.userAgent,
     userAgentData: uaData

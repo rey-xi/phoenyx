@@ -1,0 +1,62 @@
+.brand-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border-radius: 11px;
+  background: #f7f8fa;
+}
+
+.brand-mark svg {
+  width: 25px;
+  height: 25px;
+}
+
+.google-mark {
+  background: #f6f8fc;
+}
+
+.microsoft-mark {
+  background: #f5f7f9;
+}
+
+.microsoft-mark svg {
+  width: 23px;
+  height: 23px;
+}
+
+.yahoo-mark {
+  background: #f7f1ff;
+  color: #6001d2;
+}
+
+.aol-mark {
+  color: #3147a5;
+  background: #edf0ff;
+  font: 800 13px var(--display);
+  letter-spacing: -1px;
+}
+
+.other-mark {
+  color: #68738a;
+  background: #f2f4f7;
+  font-size: 19px;
+}
+
+.brand-mark.compact {
+  width: 31px;
+  height: 31px;
+  flex-basis: 31px;
+  border-radius: 8px;
+}
+
+.brand-mark.compact svg {
+  width: 20px;
+  height: 20px;
+}
+
+.brand-mark.compact.microsoft-mark svg {
+  width: 19px;
+  height: 19px;
+}

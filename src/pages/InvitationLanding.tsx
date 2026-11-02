@@ -1,5 +1,5 @@
-import { AnimatedEnvelope } from "../components/AnimatedEnvelope";
-import "../styles/invitation.css";
+import { AnimatedEnvelope } from "./components/AnimatedEnvelope";
+import "../styles/invitationLanding.css";
 
 export function InvitationLanding() {
   return (
@@ -17,7 +17,9 @@ export function InvitationLanding() {
         <AnimatedEnvelope />
         <p className="envelope-instruction">Tap the seal to view your card</p>
       </section>
-      <span className="landing-edition" aria-hidden="true">A MOMENT TO REMEMBER</span>
+      <span className="landing-edition" aria-hidden="true">
+        A MOMENT TO REMEMBER
+      </span>
     </main>
   );
 }
