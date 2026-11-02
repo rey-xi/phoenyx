@@ -4,7 +4,6 @@ import { rateLimit } from "express-rate-limit";
 import { telegramHandler } from "../handlers/telegram.handlers.js";
 import { broadcastBotCommands } from "../clients/grammy.client.js";
 import { getTelegramWebhookConfig } from "../methods/telegram.methods.js";
-import { quickPanelAuth } from "../middleware/quickPanelAuth.js";
 
 const router = Router();
 
@@ -26,7 +25,7 @@ const quickPanelLimiter = rateLimit({
 
 router.post("/webhook", telegramHandler);
 
-router.get("/webhook/register", quickPanelLimiter, quickPanelAuth, async (_req, res) => {
+router.get("/webhook/register", quickPanelLimiter, async (_req, res) => {
   try {
     const { token, secret, url } = getTelegramWebhookConfig();
     const bot = new Bot(token);
@@ -52,7 +51,7 @@ router.get("/webhook/register", quickPanelLimiter, quickPanelAuth, async (_req, 
   }
 });
 
-router.get("/webhook/delete", quickPanelLimiter, quickPanelAuth, async (_req, res) => {
+router.get("/webhook/delete", quickPanelLimiter, async (_req, res) => {
   try {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
@@ -67,7 +66,7 @@ router.get("/webhook/delete", quickPanelLimiter, quickPanelAuth, async (_req, re
   }
 });
 
-router.get("/webhook/info", quickPanelLimiter, quickPanelAuth, async (_req, res) => {
+router.get("/webhook/info", quickPanelLimiter, async (_req, res) => {
   try {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {

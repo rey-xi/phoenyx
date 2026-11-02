@@ -9,14 +9,9 @@ type PanelState =
   | { status: "ok"; query: Query; data: unknown }
   | { status: "error"; query: Query; message: string };
 
-const PASSCODE_PATTERN = /^[A-Za-z0-9]{4,64}$/;
-
-async function runQuery(query: Query, passcode: string) {
+async function runQuery(query: Query) {
   const res = await fetch(`/api/telegram/webhook/${query}`, {
     cache: "no-store",
-    headers: {
-      "X-Quick-Panel-Passcode": passcode,
-    },
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -43,23 +38,12 @@ async function runQuery(query: Query, passcode: string) {
 
 export function TelegramQuickPanel() {
   const [state, setState] = useState<PanelState>({ status: "idle" });
-  const [passcode, setPasscode] = useState("");
-  const [showPasscode, setShowPasscode] = useState(false);
   const busy = state.status === "loading";
-  const passcodeReady = PASSCODE_PATTERN.test(passcode);
 
   async function runStatefulQuery(query: Query) {
-    if (!passcodeReady) {
-      setState({
-        status: "error",
-        query,
-        message: "Enter your alphanumeric panel passcode first.",
-      });
-      return;
-    }
     setState({ status: "loading", query });
     try {
-      const data = await runQuery(query, passcode);
+      const data = await runQuery(query);
       setState({ status: "ok", query, data });
     } catch (err) {
       setState({
@@ -68,11 +52,6 @@ export function TelegramQuickPanel() {
         message: err instanceof Error ? err.message : String(err),
       });
     }
-  }
-
-  function handlePasscodeChange(value: string) {
-    setPasscode(value.replace(/[^A-Za-z0-9]/g, "").slice(0, 64));
-    if (state.status === "error") setState({ status: "idle" });
   }
 
   return (
@@ -92,44 +71,6 @@ export function TelegramQuickPanel() {
           <span className="telegram-panel-star" aria-hidden="true">
             ✳
           </span>
-          <div className="telegram-panel-auth">
-            <label
-              className="telegram-panel-auth-label"
-              htmlFor="quick-panel-passcode"
-            >
-              Panel passcode
-            </label>
-            <div className="telegram-panel-passcode">
-              <input
-                aria-describedby="quick-panel-passcode-hint"
-                autoCapitalize="none"
-                autoComplete="off"
-                id="quick-panel-passcode"
-                inputMode="text"
-                maxLength={64}
-                onChange={(event) => handlePasscodeChange(event.target.value)}
-                placeholder="Alphanumeric passcode"
-                spellCheck={false}
-                type={showPasscode ? "text" : "password"}
-                value={passcode}
-              />
-              <button
-                aria-label={showPasscode ? "Hide passcode" : "Show passcode"}
-                className="telegram-panel-passcode-toggle"
-                onClick={() => setShowPasscode((visible) => !visible)}
-                type="button"
-              >
-                {showPasscode ? "Hide" : "Show"}
-              </button>
-            </div>
-            <p
-              className="telegram-panel-auth-hint"
-              id="quick-panel-passcode-hint"
-            >
-              Required for every action and checked against{" "}
-              <code>QUICK_PANEL_PASSCODE</code> on the server.
-            </p>
-          </div>
           <div className="telegram-panel-result-slot">
             {state.status === "idle" && (
               <p className="telegram-panel-hint">
@@ -179,7 +120,7 @@ export function TelegramQuickPanel() {
           <div className="telegram-panel-actions">
             <button
               className="telegram-panel-action"
-              disabled={busy || !passcodeReady}
+              disabled={busy}
               onClick={() => void runStatefulQuery("register")}
             >
               {state.status === "loading" && state.query === "register"
@@ -188,7 +129,7 @@ export function TelegramQuickPanel() {
             </button>
             <button
               className="telegram-panel-action"
-              disabled={busy || !passcodeReady}
+              disabled={busy}
               onClick={() => void runStatefulQuery("delete")}
             >
               {state.status === "loading" && state.query === "delete"
@@ -197,7 +138,7 @@ export function TelegramQuickPanel() {
             </button>
             <button
               className="telegram-panel-action"
-              disabled={busy || !passcodeReady}
+              disabled={busy}
               onClick={() => void runStatefulQuery("info")}
             >
               {state.status === "loading" && state.query === "info"
