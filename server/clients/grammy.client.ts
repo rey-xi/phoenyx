@@ -17,17 +17,40 @@ import {
   renderSessionCard,
 } from "../methods/session.methods.js";
 
-const token = process.env.TELEGRAM_BOT_TOKEN;
-if (!token) throw new Error("Missing Telegram bot token environment variable.");
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID?.trim();
+const DEPLOYMENT_VERSION = parseFloat(process.env.DEPLOYMENT_VERSION || "0.0");
+const EXPECTED_DEPLOYMENT_VERSION = 1.0;
+
+if (!TELEGRAM_BOT_TOKEN)
+  throw new Error("Missing Telegram bot token environment variable.");
 
 const redis = Redis.fromEnv();
-const botId = token.split(":")[0];
+const botId = TELEGRAM_BOT_TOKEN.split(":")[0];
 const chkey = `telegram:botinfo:${botId}`;
 let initPromise: Promise<void> | null = null;
 
-export const bot = new Bot(token);
+export const bot = new Bot(TELEGRAM_BOT_TOKEN);
+
+async function sendTelegramError(message: string): Promise<void> {
+  if (!TELEGRAM_CHAT_ID) return;
+  try {
+    await bot.api.sendMessage(
+      TELEGRAM_CHAT_ID,
+      `🚨 Deployment error\n\n${message}`,
+    );
+  } catch (error) {
+    console.error("Failed to send deployment error to Telegram:", error);
+  }
+}
 
 export function ensureBotInitialized(): Promise<void> {
+  if (DEPLOYMENT_VERSION < EXPECTED_DEPLOYMENT_VERSION) {
+    const message = `Deployment version ${DEPLOYMENT_VERSION} is older than the expected version ${EXPECTED_DEPLOYMENT_VERSION}. Telegram updates are paused.`;
+    console.error(message);
+    void sendTelegramError(message);
+    return Promise.resolve();
+  }
   if (bot.isInited()) return Promise.resolve();
   if (initPromise) return initPromise;
   initPromise = (async () => {

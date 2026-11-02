@@ -22,8 +22,6 @@ export const telegramHandler: RequestHandler = async (request, response) => {
   }
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (!secret) {
-    // Without the shared secret anyone who learns this URL can forge updates
-    // and approve or reject leads. Fail closed in production, warn locally.
     if (isProductionRuntime()) {
       console.error(
         "TELEGRAM_WEBHOOK_SECRET is not set; refusing to process webhook updates.",
@@ -98,7 +96,5 @@ export const telegramHandler: RequestHandler = async (request, response) => {
   } finally {
     if (timeoutHandle) clearTimeout(timeoutHandle);
   }
-  // Always acknowledge: a non-2xx response makes Telegram replay the update,
-  // which duplicates cards and re-runs approval actions.
   response.sendStatus(200);
 };
