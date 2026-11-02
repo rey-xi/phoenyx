@@ -355,8 +355,8 @@ bot.callbackQuery(callbackPatterns.promptYesApprove, async (context) => {
   }
 });
 
-bot.callbackQuery(callbackPatterns.promptNum, async (context) => {
-  const [, anchor] = context.match;
+bot.callbackQuery(callbackPatterns.promptNumPage, async (context) => {
+  const [, anchor, pageNumber] = context.match;
   await context.answerCallbackQuery();
   try {
     const channel = await updateLeadSession(anchor, {
@@ -366,13 +366,39 @@ bot.callbackQuery(callbackPatterns.promptNum, async (context) => {
     });
     if (!channel) throw new Error("Invalid sessionId or expired session.");
     let keyboard = new InlineKeyboard();
-    for (let i = 1; i < 100; i++) {
+    const startNum = parseInt(pageNumber) * 25 + 1;
+    const endNum = startNum + 24;
+    for (let i = startNum; i <= endNum; i++) {
       keyboard = keyboard.text(
         `${i}`,
         reviewCallbackData(anchor, callbackActions.promptNumValue(i)),
       );
       if (i % 2 === 0) keyboard = keyboard.primary();
       if (i % 5 === 0) keyboard = keyboard.row();
+    }
+    if (endNum % 5 !== 0) keyboard = keyboard.row();
+    if (parseInt(pageNumber) > 0) {
+      keyboard = keyboard
+        .row()
+        .text(
+          "Back",
+          reviewCallbackData(
+            anchor,
+            callbackActions.promptNumPage(parseInt(pageNumber) - 1),
+          ),
+        )
+        .danger();
+    }
+    if (parseInt(pageNumber) < 3) {
+      keyboard = keyboard
+        .text(
+          "Next",
+          reviewCallbackData(
+            anchor,
+            callbackActions.promptNumPage(parseInt(pageNumber) + 1),
+          ),
+        )
+        .success();
     }
     await renderSessionCard(
       context,

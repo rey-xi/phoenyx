@@ -75,8 +75,8 @@ const cases: Array<{ pattern: RegExp; data: string; groups: string[] }> = [
     groups: [sessionId],
   },
   {
-    pattern: callbackPatterns.promptNum,
-    data: reviewCallbackData(sessionId, callbackActions.promptNum),
+    pattern: callbackPatterns.promptNumPage,
+    data: reviewCallbackData(sessionId, callbackActions.promptNumPage(1)),
     groups: [sessionId],
   },
   {
@@ -121,7 +121,7 @@ for (const value of [1, 9, 10, 99]) {
   // Every number button must also be matched by exactly one handler: the
   // generic prompt-num trigger is anchored on end-of-string, so it must not
   // swallow a numeric action.
-  assert.equal(callbackPatterns.promptNum.test(data), false);
+  assert.equal(callbackPatterns.promptNumPage.test(data), false);
 }
 
 assert.throws(() => reviewCallbackData(sessionId, "x".repeat(40)), /max 64/);
