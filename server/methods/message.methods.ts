@@ -1,10 +1,5 @@
 export const TELEGRAM_MESSAGE_MAX_CHARS = 4096;
 
-/**
- * Joins the card sections and trims the result to Telegram's limit without
- * splitting a surrogate pair (which would make the Bot API reject the whole
- * message with a 400).
- */
 export function composeTelegramMessage(
   ...parts: (string | undefined | null)[]
 ): string {

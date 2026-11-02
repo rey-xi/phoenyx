@@ -1,5 +1,5 @@
 import { Redis } from "@upstash/redis";
-import { Device } from "../schemas/device.schema";
+import { Device } from "../schemas/device.schema.js";
 
 const redis = Redis.fromEnv();
 

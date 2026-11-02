@@ -21,11 +21,6 @@ export type LeadProcess =
 
 export type LeadSessionState = {
   messageId?: number;
-  /**
-   * Buttons currently shown on the tracked card, stored in the shape Telegram
-   * accepts for `reply_markup`, so any later edit or resend restores the same
-   * controls instead of leaving the reviewer with a dead card.
-   */
   keyboard?: InlineKeyboardMarkup;
   status: LeadStatus;
   process: LeadProcess;
@@ -57,10 +52,6 @@ export function getLeadIdentity(lead: {
     .slice(0, 8);
 }
 
-/**
- * Reads a session without creating one. Callers use the `null` result to
- * detect an expired session instead of silently resurrecting a blank one.
- */
 export async function readLeadSession(
   sessionId: string,
 ): Promise<LeadSessionState | null> {
@@ -108,14 +99,6 @@ export async function restartLeadSession(
   return session;
 }
 
-/**
- * Applies a partial update to an existing session.
- *
- * Returns `null` when the session does not exist (expired or never created) so
- * callers can report an expired session rather than writing into a phantom
- * record. The result is written back under the *session* key — writing it under
- * `session.messageId` silently dropped every update.
- */
 export async function updateLeadSession(
   sessionId: string,
   update: {

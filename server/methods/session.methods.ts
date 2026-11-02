@@ -1,9 +1,9 @@
 import { Context, GrammyError, InlineKeyboard } from "grammy";
-import { LeadSessionState, updateLeadSession } from "./lead.methods";
-import { callbackActions, reviewCallbackData } from "./callback.methods";
+import { LeadSessionState, updateLeadSession } from "./lead.methods.js";
+import { callbackActions, reviewCallbackData } from "./callback.methods.js";
 import { InlineKeyboardMarkup } from "grammy/types";
-import { composeTelegramMessage } from "./message.methods";
-import { bot } from "../clients/grammy.client";
+import { composeTelegramMessage } from "./message.methods.js";
+import { bot } from "../clients/grammy.client.js";
 
 export function buildSessionOptions(
   sessionId: string,
@@ -169,11 +169,6 @@ export async function sendSessionToTelegram(
   return { messageId: result.message_id, keyboard: persistedKeyboard };
 }
 
-/**
- * Edits the card the pressed button lives on and remembers both its id and its
- * buttons on the session, so a later edit or a resend restores the same
- * controls instead of leaving a card that can no longer be operated.
- */
 export async function renderSessionCard(
   context: Context,
   sessionId: string,

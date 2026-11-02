@@ -7,8 +7,6 @@ import { getTelegramWebhookConfig } from "../methods/telegram.methods.js";
 
 const router = Router();
 
-// The passcode is short enough to guess at high volume, so throttle panel
-// calls before the authentication check runs.
 const quickPanelLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 12,
