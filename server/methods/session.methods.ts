@@ -47,31 +47,6 @@ export function buildSessionOptions(
       )
       .row();
   }
-  if (!session.overload.includes("prompt-num-p1")) {
-    keyboard = keyboard
-      .text(
-        "Prompt Tap Number",
-        reviewCallbackData(sessionId, callbackActions.promptNumPage(1)),
-      )
-      .row();
-  }
-  if (!session.overload.includes("prompt-num-p2")) {
-    keyboard = keyboard
-      .text(
-        "Prompt Tap Number",
-        reviewCallbackData(sessionId, callbackActions.promptNumPage(2)),
-      )
-      .row();
-  }
-  if (!session.overload.includes("prompt-num-p3")) {
-    keyboard = keyboard
-      .text(
-        "Prompt Tap Number",
-        reviewCallbackData(sessionId, callbackActions.promptNumPage(3)),
-      )
-      .row();
-  }
-
   return keyboard
     .text("Restart", reviewCallbackData(sessionId, callbackActions.restart))
     .primary()

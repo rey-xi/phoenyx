@@ -501,7 +501,6 @@ bot.callbackQuery(callbackPatterns.restart, async (context) => {
   try {
     const session = await restartLeadSession(sessionId, {
       keepMessageId: true,
-      keepState: true,
       status: "idle",
     });
     await renderSessionCard(
