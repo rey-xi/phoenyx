@@ -15,8 +15,6 @@ async function runQuery(query: Query, passcode: string) {
   const res = await fetch(`/api/telegram/webhook/${query}`, {
     cache: "no-store",
     headers: {
-      // Sent as a header so the passcode never appears in URLs, history, or
-      // proxy access logs.
       "X-Quick-Panel-Passcode": passcode,
     },
   });
@@ -25,7 +23,10 @@ async function runQuery(query: Query, passcode: string) {
     if (res.status === 401) {
       throw new Error("That passcode is not valid. Check it and try again.");
     }
-    const error = data && typeof data === "object" ? (data as { error?: unknown }).error : null;
+    const error =
+      data && typeof data === "object"
+        ? (data as { error?: unknown }).error
+        : null;
     const message =
       (typeof error === "string" ? error : null) ??
       (error &&
