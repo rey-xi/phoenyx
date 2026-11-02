@@ -18,7 +18,7 @@ import {
   restartLeadSession,
   updateLeadSession,
 } from "../server/methods/lead.methods.js";
-import { sendSessionToTelegram } from "../server/methods/telegram.methods.js";
+import { sendSessionToTelegram } from "../server/methods/session.methods.js";
 
 type ApiCall = { kind: "send" | "edit"; text: string; markup: unknown };
 const apiCalls: ApiCall[] = [];

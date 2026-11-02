@@ -50,11 +50,6 @@ export function reviewCallbackData(sessionId: string, action: string): string {
   return data;
 }
 
-/**
- * Makes a single reviewer-facing value (email, password, code, custom field)
- * safe to interpolate into a card: no control characters, no bidi tricks, no
- * runs of whitespace that could fake a section break.
- */
 export function sanitizeCallbackDataField(value: string): string {
   return value
     .replace(CALLBACK_UNSAFE_CHARACTERS, " ")

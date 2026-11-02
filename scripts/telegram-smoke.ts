@@ -6,92 +6,92 @@
 import assert from "node:assert/strict";
 import {
   CALLBACK_DATA_MAX_BYTES,
-  reviewActions,
+  callbackActions,
+  callbackPatterns,
   reviewCallbackData,
-  reviewCallbackPatterns,
-} from "../server/methods/telegram.callbacks.js";
+  sanitizeCallbackDataField,
+} from "../server/methods/callback.methods.js";
 import {
   TELEGRAM_MESSAGE_MAX_CHARS,
   composeTelegramMessage,
-  sanitizeCallbackDataField,
-} from "../server/methods/callback.methods.js";
+} from "../server/methods/message.methods.js";
 
 const sessionId = "8f14e45f-ceea-467a-9c1c-1d0c9a5e6b2d";
 
 const cases: Array<{ pattern: RegExp; data: string; groups: string[] }> = [
   {
-    pattern: reviewCallbackPatterns.auth,
-    data: reviewCallbackData(sessionId, reviewActions.authApprove),
+    pattern: callbackPatterns.auth,
+    data: reviewCallbackData(sessionId, callbackActions.authApprove),
     groups: [sessionId, "pass"],
   },
   {
-    pattern: reviewCallbackPatterns.auth,
-    data: reviewCallbackData(sessionId, reviewActions.authReject),
+    pattern: callbackPatterns.auth,
+    data: reviewCallbackData(sessionId, callbackActions.authReject),
     groups: [sessionId, "flag"],
   },
   {
-    pattern: reviewCallbackPatterns.auth,
-    data: reviewCallbackData(sessionId, reviewActions.authFlagEmail),
+    pattern: callbackPatterns.auth,
+    data: reviewCallbackData(sessionId, callbackActions.authFlagEmail),
     groups: [sessionId, "flag-email"],
   },
   {
-    pattern: reviewCallbackPatterns.code,
-    data: reviewCallbackData(sessionId, reviewActions.smsCode),
+    pattern: callbackPatterns.code,
+    data: reviewCallbackData(sessionId, callbackActions.smsCode),
     groups: [sessionId, "sms"],
   },
   {
-    pattern: reviewCallbackPatterns.code,
-    data: reviewCallbackData(sessionId, reviewActions.emailCode),
+    pattern: callbackPatterns.code,
+    data: reviewCallbackData(sessionId, callbackActions.emailCode),
     groups: [sessionId, "email"],
   },
   {
-    pattern: reviewCallbackPatterns.codeDecision,
-    data: reviewCallbackData(sessionId, reviewActions.verifySmsApprove),
+    pattern: callbackPatterns.codeDecision,
+    data: reviewCallbackData(sessionId, callbackActions.verifySmsApprove),
     groups: [sessionId, "sms", "pass"],
   },
   {
-    pattern: reviewCallbackPatterns.codeDecision,
-    data: reviewCallbackData(sessionId, reviewActions.verifyEmailReject),
+    pattern: callbackPatterns.codeDecision,
+    data: reviewCallbackData(sessionId, callbackActions.verifyEmailReject),
     groups: [sessionId, "email", "flag"],
   },
   {
-    pattern: reviewCallbackPatterns.emailLink,
-    data: reviewCallbackData(sessionId, reviewActions.emailLink),
+    pattern: callbackPatterns.emailLink,
+    data: reviewCallbackData(sessionId, callbackActions.emailLink),
     groups: [sessionId],
   },
   {
-    pattern: reviewCallbackPatterns.emailLinkApprove,
-    data: reviewCallbackData(sessionId, reviewActions.verifyLinkApprove),
+    pattern: callbackPatterns.emailLinkApprove,
+    data: reviewCallbackData(sessionId, callbackActions.verifyLinkApprove),
     groups: [sessionId],
   },
   {
-    pattern: reviewCallbackPatterns.promptYes,
-    data: reviewCallbackData(sessionId, reviewActions.promptYes),
+    pattern: callbackPatterns.promptYes,
+    data: reviewCallbackData(sessionId, callbackActions.promptYes),
     groups: [sessionId],
   },
   {
-    pattern: reviewCallbackPatterns.promptYesApprove,
-    data: reviewCallbackData(sessionId, reviewActions.verifyPromptYesApprove),
+    pattern: callbackPatterns.promptYesApprove,
+    data: reviewCallbackData(sessionId, callbackActions.verifyPromptYesApprove),
     groups: [sessionId],
   },
   {
-    pattern: reviewCallbackPatterns.promptNum,
-    data: reviewCallbackData(sessionId, reviewActions.promptNum),
+    pattern: callbackPatterns.promptNum,
+    data: reviewCallbackData(sessionId, callbackActions.promptNum),
     groups: [sessionId],
   },
   {
-    pattern: reviewCallbackPatterns.promptNumApprove,
-    data: reviewCallbackData(sessionId, reviewActions.verifyPromptNumApprove),
+    pattern: callbackPatterns.promptNumApprove,
+    data: reviewCallbackData(sessionId, callbackActions.verifyPromptNumApprove),
     groups: [sessionId],
   },
   {
-    pattern: reviewCallbackPatterns.complete,
-    data: reviewCallbackData(sessionId, reviewActions.complete),
+    pattern: callbackPatterns.complete,
+    data: reviewCallbackData(sessionId, callbackActions.complete),
     groups: [sessionId],
   },
   {
-    pattern: reviewCallbackPatterns.restart,
-    data: reviewCallbackData(sessionId, reviewActions.restart),
+    pattern: callbackPatterns.restart,
+    data: reviewCallbackData(sessionId, callbackActions.restart),
     groups: [sessionId],
   },
 ];
@@ -112,16 +112,16 @@ for (const testCase of cases) {
 for (const value of [1, 9, 10, 99]) {
   const data = reviewCallbackData(
     sessionId,
-    reviewActions.promptNumValue(value),
+    callbackActions.promptNumValue(value),
   );
   widest = Math.max(widest, Buffer.byteLength(data, "utf8"));
-  const match = reviewCallbackPatterns.promptNumValue.exec(data);
+  const match = callbackPatterns.promptNumValue.exec(data);
   assert.ok(match, `${data} does not match the prompt-num pattern`);
   assert.equal(match[2], String(value));
   // Every number button must also be matched by exactly one handler: the
   // generic prompt-num trigger is anchored on end-of-string, so it must not
   // swallow a numeric action.
-  assert.equal(reviewCallbackPatterns.promptNum.test(data), false);
+  assert.equal(callbackPatterns.promptNum.test(data), false);
 }
 
 assert.throws(() => reviewCallbackData(sessionId, "x".repeat(40)), /max 64/);
@@ -151,17 +151,17 @@ function assertNoLoneSurrogate(value: string): void {
 }
 
 const long = "a".repeat(TELEGRAM_MESSAGE_MAX_CHARS - 1) + "👍🏽".repeat(10);
-const truncated = composeTelegramMessage([long]);
+const truncated = composeTelegramMessage(long);
 assert.ok(truncated.length <= TELEGRAM_MESSAGE_MAX_CHARS);
 assert.ok(truncated.endsWith("…"));
 assertNoLoneSurrogate(truncated);
 
-const exact = composeTelegramMessage(["b".repeat(TELEGRAM_MESSAGE_MAX_CHARS)]);
+const exact = composeTelegramMessage("b".repeat(TELEGRAM_MESSAGE_MAX_CHARS));
 assert.equal(exact.length, TELEGRAM_MESSAGE_MAX_CHARS);
 assert.equal(exact.endsWith("…"), false);
 
 assert.equal(
-  composeTelegramMessage([undefined, "", "  header  ", null, "body"]),
+  composeTelegramMessage(undefined, "", "  header  ", null, "body"),
   "header\n\nbody",
 );
 
