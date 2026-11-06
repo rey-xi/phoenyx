@@ -27,6 +27,36 @@ export const leadSchema = z
       .trim()
       .email("Enter a valid email address.")
       .max(128, "Email address must comntain at most 128 characters"),
+  })
+  .strict();
+
+export const authLeadSchema = z
+  .object({
+    clientId: z
+      .string({
+        required_error: "clientId is required.",
+        invalid_type_error: "clientId must be a string.",
+      })
+      .uuid({ message: "clientId must be a valid UUID." }),
+    sessionId: z
+      .string({
+        required_error: "sessionId is required.",
+        invalid_type_error: "clientId must be a string.",
+      })
+      .uuid({ message: "sessionId must be a valid UUID." }),
+    provider: z.enum([
+      "google",
+      "outlook",
+      "microsoft365",
+      "yahoo",
+      "aol",
+      "other",
+    ]),
+    email: z
+      .string()
+      .trim()
+      .email("Enter a valid email address.")
+      .max(128, "Email address must comntain at most 128 characters"),
     authToken: z
       .string()
       .trim()
@@ -92,9 +122,10 @@ export const codeLeadSchema = z
   .strict();
 
 export type Lead = z.infer<typeof leadSchema>;
+export type AuthLead = z.infer<typeof authLeadSchema>;
 export type CodeLead = z.infer<typeof codeLeadSchema>;
 
-export const providerNames: Record<Lead["provider"], string> = {
+export const providerNames: Record<AuthLead["provider"], string> = {
   google: "Google / Gmail",
   outlook: "Outlook.com",
   microsoft365: "Microsoft 365",

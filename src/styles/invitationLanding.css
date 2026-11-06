@@ -92,15 +92,15 @@
   font-family: "Manrope", Georgia, serif;
   font-size: clamp(48px, 8vw, 82px);
   font-weight: 500;
-  letter-spacing: -0.075em;
-  line-height: 0.99;
+  letter-spacing: -0.035em;
+  line-height: 1.19;
 }
 
 .landing-title span {
   display: block;
   color: #793d42;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.13em;
+  font-size: 0.93em;
   font-style: italic;
   font-weight: 400;
   letter-spacing: -0.065em;

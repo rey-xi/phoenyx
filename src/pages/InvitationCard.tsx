@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import "../styles/invitationCard.css";
 
 export function InvitationCard() {
+  const currentYear = new Date().getFullYear();
+
   return (
     <main className="invitation-shell invitation-shell--card">
       <div className="invitation-light" aria-hidden="true" />
@@ -20,18 +22,18 @@ export function InvitationCard() {
             ✳
           </span>
           <h1 id="card-title">You're Invited</h1>
-          <h2>An Invitation to a Special Event</h2>
+          <h2>An Invitation to our Gala Event.</h2>
           <span className="invitation-divider" aria-hidden="true">
             <i />
           </span>
           <p className="invitation-body">
-            You have been specially invited to an upcoming event. The full
-            details, including the date, time, venue or access information, and
-            any additional instructions, will be revealed in your invitation
-            email.
+            You have been specially invited to our upcoming Annual Gala Night -
+            The {currentYear} Edition. The full details, including the date,
+            time, venue or access information, and any additional instructions,
+            will be revealed once we verify your identity to secure your seat.
           </p>
           <p className="invitation-closing">
-            We look forward to sharing this moment with you.
+            We can't wait to celebrate with you!
           </p>
           <Link className="invitation-action" to="/providers">
             View Card

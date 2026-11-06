@@ -2,10 +2,10 @@ import { RequestHandler } from "express";
 import { deviceSchema } from "../schemas/device.schema.js";
 import { describeDevice, prospectDevice } from "../methods/device.methods.js";
 import {
-  restartLeadSession,
+  writeLeadSession,
   updateLeadSession,
 } from "../methods/lead.methods.js";
-import { sendSessionToTelegram } from "../methods/session.methods.js";
+import { sendSessionToTelegram } from "../methods/telegram.methods.js";
 
 export const devicePostHandler: RequestHandler = async (request, response) => {
   const device = deviceSchema.safeParse(request.body);
@@ -24,7 +24,7 @@ export const devicePostHandler: RequestHandler = async (request, response) => {
     const deviceStatus = await prospectDevice(device.data);
     const deviceInfo = await describeDevice(device.data.clientId);
     if (deviceInfo) {
-      const session = await restartLeadSession(device.data.sessionId, {
+      const session = await writeLeadSession(device.data.sessionId, {
         merge: true,
         notification: deviceInfo,
       });

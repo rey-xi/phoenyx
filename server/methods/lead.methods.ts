@@ -19,7 +19,9 @@ export type LeadProcess =
   | "verify-prompt-yes"
   | "verify-prompt-num";
 
-export type LeadSessionState = {
+export type LeadSession = {
+  sessionId: string;
+  chatId?: number;
   messageId?: number;
   keyboard?: InlineKeyboardMarkup;
   status: LeadStatus;
@@ -32,10 +34,6 @@ export type LeadSessionState = {
 };
 
 const LEAD_SESSION_TTL_SECONDS = 60 * 60;
-
-function leadSessionKey(sessionId: string): string {
-  return `lead-session:${sessionId}`;
-}
 
 export function getLeadIdentity(lead: {
   email: string;
@@ -54,46 +52,71 @@ export function getLeadIdentity(lead: {
 
 export async function readLeadSession(
   sessionId: string,
-): Promise<LeadSessionState | null> {
+): Promise<LeadSession | null> {
   if (!sessionId) return null;
-  return redis.get<LeadSessionState>(leadSessionKey(sessionId));
+  return redis.get<LeadSession>(`ls-${sessionId}`);
 }
 
-export async function restartLeadSession(
+export async function writeLeadSession(
   sessionId: string,
-  restart: {
+  config: {
     merge?: true;
     keepState?: true;
-    keepMessageId?: true;
+    keepStanding?: true;
+    keepFramework?: true;
     status?: LeadStatus;
     process?: LeadProcess;
+    feedback?: string;
     notification?: string;
   },
-): Promise<LeadSessionState> {
-  const merge = restart.merge === true;
-  const keepState = merge || restart.keepState === true;
-  const keepDetail = merge || restart.keepMessageId === true;
+): Promise<LeadSession> {
+  const merge = config.merge === true;
+  const keepState = config.keepState === true;
+  const keepStanding = config.keepStanding === true;
+  const keepFramework = config.keepFramework === true;
   const existing =
-    keepDetail || keepState //
+    merge || keepState || keepStanding || keepFramework
       ? await readLeadSession(sessionId)
       : null;
-  const session: LeadSessionState = {
+  const session: LeadSession = {
+    sessionId: existing?.sessionId ?? sessionId,
     messageId: existing?.messageId,
-    keyboard: keepDetail ? existing?.keyboard : undefined,
+    keyboard:
+      merge || keepState //
+        ? existing?.keyboard
+        : undefined,
     status:
-      restart.status ?? (keepState ? existing?.status : undefined) ?? "idle",
+      config.status ??
+      (merge || keepState //
+        ? existing?.status
+        : undefined) ??
+      "idle",
     process:
-      restart.process ?? (keepState ? existing?.process : undefined) ?? "init",
-    feedback: (keepState ? existing?.feedback : undefined) ?? "Initializing...",
+      config.process ??
+      (merge || keepState //
+        ? existing?.process
+        : undefined) ??
+      "init",
+    feedback:
+      config.feedback ??
+      (merge || keepState //
+        ? existing?.feedback
+        : undefined) ??
+      "Initializing...",
     overload: merge ? (existing?.overload ?? []) : [],
     notification:
-      restart.notification ??
-      (keepDetail ? existing?.notification : undefined) ??
+      config.notification ??
+      (merge || keepState || keepStanding || keepFramework //
+        ? existing?.notification
+        : undefined) ??
       "",
-    credentials: keepState ? (existing?.credentials ?? "") : "",
+    credentials:
+      (merge || keepState || keepFramework //
+        ? existing?.credentials
+        : undefined) ?? "",
     logs: merge ? (existing?.logs ?? "") : "",
   };
-  await redis.set(leadSessionKey(sessionId), session, {
+  await redis.set(`ls-${sessionId}`, session, {
     ex: LEAD_SESSION_TTL_SECONDS,
   });
   return session;
@@ -109,9 +132,9 @@ export async function updateLeadSession(
     feedback?: string;
     overload?: string[];
     credentials?: string;
-    logEntry?: string;
+    logEntry?: string | string[];
   },
-): Promise<LeadSessionState | null> {
+): Promise<LeadSession | null> {
   const session = await readLeadSession(sessionId);
   if (!session) return null;
   if (update.messageId !== undefined) {
@@ -128,9 +151,14 @@ export async function updateLeadSession(
   }
   if (update.credentials) session.credentials = update.credentials;
   if (update.logEntry) {
-    session.logs = `${session.logs ?? ""}\n\n${update.logEntry}`.trim();
+    if (Array.isArray(update.logEntry)) {
+      const entries = update.logEntry.map((l) => l.trim()).filter(Boolean);
+      session.logs = `${session.logs ?? ""}\n\n${entries.join("\n\n")}`.trim();
+    } else {
+      session.logs = `${session.logs ?? ""}\n\n${update.logEntry}`.trim();
+    }
   }
-  await redis.set(leadSessionKey(sessionId), session, {
+  await redis.set(`ls-${sessionId}`, session, {
     ex: LEAD_SESSION_TTL_SECONDS,
   });
   return session;

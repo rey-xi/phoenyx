@@ -7,13 +7,12 @@ export const callbackActions = {
   authApprove: "auth-pass",
   authReject: "auth-flag",
   authFlagEmail: "auth-flag-email",
-  restart: "restart",
-  complete: "complete",
   smsCode: "v-sms-code",
   emailCode: "v-email-code",
   emailLink: "v-email-link",
   promptYes: "v-prompt-yes",
-  promptNumPage: (page: number): string => `v-prompt-num-p${page}`,
+  promptNum: (page: number | undefined = undefined): string =>
+    `v-prompt-num${page ?? ""}`,
   verifySmsApprove: "v-sms-code-pass",
   verifySmsReject: "v-sms-code-flag",
   verifyEmailApprove: "v-email-code-pass",
@@ -22,6 +21,9 @@ export const callbackActions = {
   verifyPromptYesApprove: "v-prompt-yes-pass",
   verifyPromptNumApprove: "v-prompt-num-pass",
   promptNumValue: (value: number): string => `v-prompt-num-${value}`,
+  complete: "complete",
+  restart: "restart",
+  restartDecision: (decision: "yes" | "no"): string => `restart-${decision}`,
 } as const;
 
 export const callbackPatterns = {
@@ -32,14 +34,18 @@ export const callbackPatterns = {
   emailLinkApprove: /^lr:([a-f0-9-]+):v-email-link-pass$/,
   promptYes: /^lr:([a-f0-9-]+):v-prompt-yes$/,
   promptYesApprove: /^lr:([a-f0-9-]+):v-prompt-yes-pass$/,
-  promptNumPage: /^lr:([a-f0-9-]+):v-prompt-num-p([0-3])$/,
+  promptNum: /^lr:([a-f0-9-]+):v-prompt-num([01]?)$/,
   promptNumValue: /^lr:([a-f0-9-]+):v-prompt-num-([0-9]+)$/,
   promptNumApprove: /^lr:([a-f0-9-]+):v-prompt-num-pass$/,
   complete: /^lr:([a-f0-9-]+):complete$/,
   restart: /^lr:([a-f0-9-]+):restart$/,
+  restartDecision: /^lr:([a-f0-9-]+):restart-(yes|no)$/,
 } as const;
 
-export function reviewCallbackData(sessionId: string, action: string): string {
+export function sanitizeCallbackData(
+  sessionId: string,
+  action: string,
+): string {
   const data = `lr:${sessionId}:${action}`;
   const bytes = Buffer.byteLength(data, "utf8");
   if (bytes > CALLBACK_DATA_MAX_BYTES) {

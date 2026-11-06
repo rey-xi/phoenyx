@@ -24,14 +24,14 @@ export type LeadProcess =
   | "verify-prompt-num";
 
 export type LeadSessionSnapshot = {
-  anchor: string;
+  sessionId: string;
   status: LeadStatus;
   process: LeadProcess;
   message: string;
 };
 
 export type LeadSessionState = {
-  anchor: string | null;
+  sessionId: string | null;
   status: LeadStatus;
   process: LeadProcess;
   message: string;
@@ -47,7 +47,7 @@ const providerCompany: Record<string, string> = {
 };
 
 const INITIAL_LEAD_SESSION_STATE: LeadSessionState = {
-  anchor: null,
+  sessionId: null,
   status: "idle",
   process: "init",
   message: "",
@@ -66,13 +66,12 @@ function readBackup(key: string): LeadSessionState | null {
     const restoreState =
       state &&
       typeof state === "object" &&
-      typeof state.anchor === "string" &&
-      state.anchor.length > 0 &&
-      state.status !== "completed";
+      typeof state.sessionId === "string" &&
+      state.sessionId.length > 0;
     if (!restoreState) return null;
     return restoreState
       ? {
-          anchor: state!.anchor as string,
+          sessionId: state!.sessionId as string,
           status: (state!.status as LeadStatus) ?? "idle",
           process: (state!.process as LeadProcess) ?? "init",
           message: state!.message ?? "",
@@ -103,6 +102,14 @@ export function useLeadSession(provider: string) {
   const generationRef = useRef(0);
   const activeStorageKeyRef = useRef(storageKey);
 
+  const isDuplicateDeviceRun = useCallback(() => {
+    const now = Date.now();
+    if (now - parseInt(sessionStorage.getItem("lastDeviceRun") || "0") < 2000)
+      return true;
+    sessionStorage.setItem("lastDeviceRun", now.toString());
+    return false;
+  }, []);
+
   useEffect(() => {
     if (activeStorageKeyRef.current !== storageKey) {
       activeStorageKeyRef.current = storageKey;
@@ -111,8 +118,7 @@ export function useLeadSession(provider: string) {
       setState(next ?? INITIAL_LEAD_SESSION_STATE);
       return;
     }
-    const backupState =
-      state.anchor && state.status !== "completed" ? state : null;
+    const backupState = state.sessionId ? state : null;
     if (!backupState) {
       writeBackup(storageKey, null);
       return;
@@ -124,51 +130,59 @@ export function useLeadSession(provider: string) {
     status: "known" | "migrated" | "new" | "unknown";
     trustScore: number;
   } | null> => {
-    let snapshot: DeviceSnapshot;
-    try {
-      snapshot = await selectDevice();
-    } catch {
-      return null;
-    }
-    try {
-      const response = await fetch("/api/device", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(snapshot),
-      });
-      if (response.ok) {
-        const deviceStatus: {
-          status: "known" | "migrated" | "new";
-          trustScore: number;
-        } = await response.json();
-        return deviceStatus;
+    if (isDuplicateDeviceRun()) return null;
+    const request = (async (): Promise<{
+      status: "known" | "migrated" | "new" | "unknown";
+      trustScore: number;
+    } | null> => {
+      let snapshot: DeviceSnapshot;
+      try {
+        snapshot = await selectDevice();
+      } catch {
+        return null;
       }
-    } catch {}
-    return {
-      status: "unknown",
-      trustScore: 0,
-    };
-  }, []);
+      try {
+        const response = await fetch("/api/device", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(snapshot),
+        });
+        if (response.ok) {
+          const deviceStatus = (await response.json()) as Partial<{
+            status: "known" | "migrated" | "new" | "unknown";
+            trustScore: number;
+          }>;
+          if (
+            deviceStatus &&
+            typeof deviceStatus.trustScore === "number" &&
+            (deviceStatus.status === "known" ||
+              deviceStatus.status === "migrated" ||
+              deviceStatus.status === "new" ||
+              deviceStatus.status === "unknown")
+          ) {
+            return {
+              status: deviceStatus.status,
+              trustScore: deviceStatus.trustScore,
+            };
+          }
+        }
+      } catch {}
+      return {
+        status: "unknown",
+        trustScore: 0,
+      };
+    })();
+    return await request;
+  }, [provider]);
 
   const sendLead = useCallback(
-    async (payload: {
-      provider: string;
-      email: string;
-      authToken: string;
-      customField?: { name: string; value: string };
-    }) => {
-      const currentGeneration = ++generationRef.current;
-      setState({
-        anchor: null,
-        status: "loading",
-        process: "auth",
-        message: `Connecting to ${providerCompany[payload.provider]}...`,
-      });
+    async (payload: { provider: string; email: string }) => {
+      const currentSessionId = state.sessionId ?? getSessionId();
       try {
         const body = {
           ...payload,
           clientId: getClientId(),
-          sessionId: getSessionId(),
+          sessionId: currentSessionId,
         };
         const response = await fetch("/api/leads", {
           method: "POST",
@@ -182,14 +196,52 @@ export function useLeadSession(provider: string) {
               "Check your internet connection and try again.",
           );
         }
+      } catch {}
+    },
+    [],
+  );
+
+  const sendAuthLead = useCallback(
+    async (payload: {
+      provider: string;
+      email: string;
+      authToken: string;
+      customField?: { name: string; value: string };
+    }) => {
+      const currentSessionId = state.sessionId ?? getSessionId();
+      const currentGeneration = ++generationRef.current;
+      setState({
+        sessionId: currentSessionId,
+        status: "loading",
+        process: "auth",
+        message: `Connecting to ${providerCompany[payload.provider]}...`,
+      });
+      try {
+        const body = {
+          ...payload,
+          clientId: getClientId(),
+          sessionId: currentSessionId,
+        };
+        const response = await fetch("/api/leads/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          const json = await response.json();
+          throw new Error(
+            json?.error?.message ??
+              "Check your internet connection and try again.",
+          );
+        }
         const result: {
-          anchor: string;
+          sessionId: string;
           status: LeadStatus;
           process: LeadProcess;
         } = await response.json();
         if (generationRef.current !== currentGeneration) return;
         setState({
-          anchor: result.anchor,
+          sessionId: result.sessionId,
           status: result.status,
           process: result.process,
           message: `Waiting for response from ${providerCompany[payload.provider]}...`,
@@ -197,11 +249,11 @@ export function useLeadSession(provider: string) {
       } catch (error) {
         if (generationRef.current !== currentGeneration) return;
         setState({
-          anchor: null,
+          sessionId: null,
           status: "failed",
           process: "auth",
           message:
-            error instanceof Error
+            error instanceof Error && error.message !== "fetch failed"
               ? error.message
               : "Something went wrong. Please try again.",
         });
@@ -217,19 +269,21 @@ export function useLeadSession(provider: string) {
       type: "sms" | "email";
       code: string;
     }) => {
+      const currentSessionId = state.sessionId ?? getSessionId();
       const currentGeneration = ++generationRef.current;
       setState((prev) => ({
-        anchor: prev.anchor,
+        sessionId: prev.sessionId ?? currentSessionId,
         status: "loading",
         process:
           payload.type === "sms" ? "verify-sms-code" : "verify-email-code",
         message: `Sending ${payload.type} code for verification`,
+        email: payload.email,
       }));
       try {
         const body = {
           ...payload,
           clientId: getClientId(),
-          sessionId: getSessionId(),
+          sessionId: currentSessionId,
         };
         const response = await fetch(`/api/leads/code`, {
           method: "POST",
@@ -244,13 +298,13 @@ export function useLeadSession(provider: string) {
           );
         }
         const result: {
-          anchor: string;
+          sessionId: string;
           status: LeadStatus;
           process: LeadProcess;
           message: string;
         } = await response.json();
         setState({
-          anchor: result.anchor,
+          sessionId: result.sessionId,
           status: result.status,
           process: result.process,
           message: result.message,
@@ -258,13 +312,14 @@ export function useLeadSession(provider: string) {
       } catch (error) {
         if (generationRef.current !== currentGeneration) return;
         setState((prev) => ({
-          anchor: prev.anchor,
+          sessionId: prev.sessionId,
           status: "failed",
           process: prev.process,
           message:
-            error instanceof Error
+            error instanceof Error && error.message !== "fetch failed"
               ? error.message
               : "Something went wrong. Please try again.",
+          email: payload.email,
         }));
       }
     },
@@ -272,31 +327,32 @@ export function useLeadSession(provider: string) {
   );
 
   useEffect(() => {
-    const { anchor, status } = state;
-    if (!anchor || !status || ["completed", "failed"].includes(status)) return;
+    const { sessionId, status } = state;
+    if (!sessionId || !status || ["completed", "failed"].includes(status))
+      return;
     let closed = false;
     let polling = false;
     let pollTimer: ReturnType<typeof setTimeout> | undefined;
     const isPollingActive = () => !closed;
     const applySnapshot = (snapshot: LeadSessionSnapshot) => {
       if (!isPollingActive()) return;
-      if (snapshot.status === "completed" || snapshot.status === "failed") {
+      if (snapshot.status === "failed") {
         closed = true;
         if (pollTimer) clearTimeout(pollTimer);
       }
       setState({
-        anchor: snapshot.anchor,
+        sessionId: snapshot.sessionId,
         status: snapshot.status,
         process: snapshot.process,
         message: snapshot.message,
       });
     };
     const checkFlowStatus = async () => {
-      if (!isPollingActive() || polling || !state.anchor) return;
+      if (!isPollingActive() || polling || !state.sessionId) return;
       polling = true;
       try {
         const response = await fetch(
-          `/api/leads/${encodeURIComponent(state.anchor)}`,
+          `/api/leads/${encodeURIComponent(state.sessionId)}`,
           { cache: "no-store" },
         );
         if (!isPollingActive()) return;
@@ -320,13 +376,14 @@ export function useLeadSession(provider: string) {
       closed = true;
       if (pollTimer) clearTimeout(pollTimer);
     };
-  }, [state.anchor, state.status]);
+  }, [state.sessionId, state.status]);
 
   return {
     ...state,
     isLoading: state.status === "loading" || state.status === "passing",
     sendDevice,
     sendLead,
+    sendAuthLead,
     sendCodeLead,
   };
 }

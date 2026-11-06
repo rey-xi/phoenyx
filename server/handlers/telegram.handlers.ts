@@ -3,9 +3,9 @@ import type { RequestHandler } from "express";
 import {
   getTelegramMode,
   canReadTelegramUpdate,
-  isProductionRuntime,
 } from "../methods/telegram.methods.js";
 import { bot, ensureBotInitialized } from "../clients/grammy.client.js";
+import { isProductionRuntime } from "../methods/runtime.methods.js";
 
 const PROCESSING_TIMEOUT_MS = 6000;
 

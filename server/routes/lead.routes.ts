@@ -3,6 +3,7 @@ import { rateLimit } from "express-rate-limit";
 import {
   leadGetHandler,
   codeLeadPostHandler,
+  authLeadPostHandler,
   leadPostHandler,
 } from "../handlers/lead.handlers.js";
 
@@ -12,7 +13,7 @@ router.post(
   "/",
   rateLimit({
     windowMs: 60 * 1000,
-    limit: 10,
+    limit: 20,
     standardHeaders: "draft-7",
     legacyHeaders: false,
     message: {
@@ -26,8 +27,26 @@ router.post(
   leadPostHandler,
 );
 
+router.post(
+  "/auth",
+  rateLimit({
+    windowMs: 60 * 1000,
+    limit: 20,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: {
+      ok: false,
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many requests. Please wait a moment and try again.",
+      },
+    },
+  }),
+  authLeadPostHandler,
+);
+
 router.post("/code", codeLeadPostHandler);
 
-router.get("/:anchor", leadGetHandler);
+router.get("/:sessionId", leadGetHandler);
 
 export default router;

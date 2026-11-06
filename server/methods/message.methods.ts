@@ -1,6 +1,6 @@
 export const TELEGRAM_MESSAGE_MAX_CHARS = 4096;
 
-export function composeTelegramMessage(
+export function composeMessage(
   ...parts: (string | undefined | null)[]
 ): string {
   const body = parts
