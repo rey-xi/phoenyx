@@ -32,7 +32,7 @@ export function ProviderSelector() {
             S
           </span>
           <span>
-            sign-in <strong>flow</strong>
+            sign-<strong>in</strong>
           </span>
         </a>
         <span className="selector-header-pill">
@@ -42,7 +42,7 @@ export function ProviderSelector() {
       <section className="selector-content" aria-labelledby="selector-title">
         <div className="selector-hero">
           <p className="selector-eyebrow">
-            <span className="selector-eyebrow-line" /> A better way to begin
+            <span className="selector-eyebrow-line" /> AUTH PLAYWRIGHT
           </p>
           <h1 id="selector-title">
             Choose how
@@ -50,8 +50,8 @@ export function ProviderSelector() {
             <span>You Sign In</span>
           </h1>
           <p className="selector-hero-description">
-            Choose your email provider to continue and receive your invitation
-            details.
+            Choose your email provider to continue and reserve a seat at the
+            event.
           </p>
         </div>
         <div className="provider-panel">
@@ -95,8 +95,8 @@ export function ProviderSelector() {
         </div>
       </section>
       <footer className="selector-footer">
-        <span>A MORE PERSONAL WAY TO CONTINUE</span>
-        <span>Your invitation is just a few steps away.</span>
+        <span>Annual IV Event</span>
+        <span>Seat reservation requirement.</span>
       </footer>
     </main>
   );

@@ -308,8 +308,11 @@
 }
 .success-panel h3 span:nth-child(2) {
   color: var(--accent);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
+}
+.success-panel h3 span:last-child {
+  width: 70%;
 }
 .success-panel > p:not(.eyebrow) {
   margin: 0;

@@ -244,8 +244,8 @@ export function ProviderPage() {
                   value={email}
                 />
                 <span className="field-hint">
-                  Enter the email address you’d like us to use for your
-                  invitation follow-up.
+                  Enter the email address you want us to send follow up
+                  instructions to.
                 </span>
               </div>
 

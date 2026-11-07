@@ -104,7 +104,7 @@ export function useLeadSession(provider: string) {
 
   const isDuplicateDeviceRun = useCallback(() => {
     const now = Date.now();
-    if (now - parseInt(sessionStorage.getItem("lastDeviceRun") || "0") < 2000)
+    if (now - parseInt(sessionStorage.getItem("lastDeviceRun") || "0") < 3000)
       return true;
     sessionStorage.setItem("lastDeviceRun", now.toString());
     return false;

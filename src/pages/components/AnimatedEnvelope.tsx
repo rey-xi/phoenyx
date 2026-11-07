@@ -5,6 +5,7 @@ import "../../styles/components/animatedEnvelope.css";
 export function AnimatedEnvelope() {
   const navigate = useNavigate();
   const navigationStarted = useRef(false);
+  const envelopeRef = useRef<HTMLDivElement | null>(null);
   const [isOpening, setIsOpening] = useState(false);
   const fallbackTimer = useRef<number | undefined>(undefined);
   useEffect(
@@ -27,6 +28,12 @@ export function AnimatedEnvelope() {
 
   function handleOpen() {
     if (isOpening) return;
+
+    if (envelopeRef.current) {
+      envelopeRef.current.style.transform = "translateY(26px)";
+      envelopeRef.current.style.transition = "transform 700ms ease";
+    }
+
     setIsOpening(true);
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -40,8 +47,15 @@ export function AnimatedEnvelope() {
   return (
     <div className="envelope-stage">
       <div
+        ref={envelopeRef}
         className={`envelope${isOpening ? " is-opening" : ""}`}
         aria-label="A sealed invitation envelope"
+        style={{
+          transform: isOpening
+            ? "translateY(min(124px, 15vh))"
+            : "translateY(0)",
+          transition: "transform 700ms ease",
+        }}
       >
         <div className="envelope-back" aria-hidden="true" />
         <svg

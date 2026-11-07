@@ -119,9 +119,9 @@
 .landing-edition {
   position: absolute;
   z-index: 2;
-  bottom: 37px;
+  bottom: 32px;
   color: #9b835f;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.24em;
 }
@@ -162,7 +162,7 @@
 
   .landing-edition {
     bottom: 25px;
-    font-size: 7px;
+    font-size: 9px;
   }
 }
 

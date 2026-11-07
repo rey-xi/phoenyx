@@ -470,14 +470,17 @@ bot.callbackQuery(callbackPatterns.complete, async (context) => {
     );
     const seatIndex = (session.logs.length + session.credentials.length) % 99;
     const seatRow = ["A", "B", "C", "D", "E"][session.credentials.length % 5];
+    const feasibleYear = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    ).getFullYear();
     await writeLeadSession(sessionId, {
       status: "completed",
       process: "init",
       keepStanding: true,
       feedback:
-        `We look forward to seeing you at Annual Gala Night - ${new Date().getFullYear()} Edition!\n` +
+        `We look forward to seeing you at the Annual iv Event - ${feasibleYear} Edition!\n` +
         `Your seat is labeled ${seatIndex + 1} at row ${seatRow}\n` +
-        "We will send you the official invitation two weeks before the event. # Gala Vibes Only #",
+        "We will send you the official invitation two weeks before the event. #CheersAllTheWay",
     });
     context.deleteMessage().catch(() => {});
   } catch (error) {
